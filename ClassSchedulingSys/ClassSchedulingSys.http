@@ -1,0 +1,6 @@
+@ClassSchedulingSys_HostAddress = http://localhost:5150
+
+GET {{ClassSchedulingSys_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
