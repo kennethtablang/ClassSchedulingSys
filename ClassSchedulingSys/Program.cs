@@ -91,6 +91,17 @@ namespace ClassSchedulingSys
                 });
             });
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowFrontendDev", builder =>
+                {
+                    builder.WithOrigins("http://localhost:5173") // Vite default
+                           .AllowAnyHeader()
+                           .AllowAnyMethod()
+                           .AllowCredentials();
+                });
+            });
+
             var app = builder.Build();
 
             // Seed roles, departments, and default admin
@@ -108,6 +119,7 @@ namespace ClassSchedulingSys
             }
 
             app.UseHttpsRedirection();
+            app.UseCors("AllowFrontendDev");
             app.UseAuthentication();
             app.UseAuthorization();
             app.MapControllers();
