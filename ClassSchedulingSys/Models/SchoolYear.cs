@@ -7,8 +7,16 @@ namespace ClassSchedulingSys.Models
         public int Id { get; set; }
 
         [Required]
-        public string Year { get; set; } = string.Empty; // Format: "2025-2026"
+        public int StartYear { get; set; }
 
-        public ICollection<Semester>? Semesters { get; set; }
+        [Required]
+        public int EndYear { get; set; }
+
+        public bool IsCurrent { get; set; } = false;
+
+        public bool IsArchived { get; set; } = false;
+
+        // Optional: Add CreatedAt/UpdatedAt for auditing
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

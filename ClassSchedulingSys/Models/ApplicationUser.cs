@@ -10,6 +10,8 @@ namespace ClassSchedulingSys.Models
         public string? MiddleName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
 
+        public bool IsActive { get; set; } = true; // Default to true, can be set to false for deactivation
+
         // Computed helper(not mapped to the DB)
         [NotMapped]
         public string FullName

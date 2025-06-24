@@ -39,7 +39,7 @@ namespace ClassSchedulingSys.Controllers
                 TotalClasses = classCount,
                 TotalSchedules = scheduleCount,
                 CurrentSemester = currentSemester?.Name,
-                CurrentSchoolYear = currentSemester?.SchoolYear?.Year
+                CurrentSchoolYear = currentSemester?.SchoolYear?.StartYear
             });
         }
 

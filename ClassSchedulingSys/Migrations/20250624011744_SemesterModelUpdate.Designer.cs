@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ClassSchedulingSys.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250620043544_AddScheduleSemesterAndOtherEntities")]
-    partial class AddScheduleSemesterAndOtherEntities
+    [Migration("20250624011744_SemesterModelUpdate")]
+    partial class SemesterModelUpdate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -50,6 +50,9 @@ namespace ClassSchedulingSys.Migrations
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -126,6 +129,28 @@ namespace ClassSchedulingSys.Migrations
                     b.ToTable("Buildings");
                 });
 
+            modelBuilder.Entity("ClassSchedulingSys.Models.Class", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.ToTable("Classes");
+                });
+
             modelBuilder.Entity("ClassSchedulingSys.Models.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -182,6 +207,9 @@ namespace ClassSchedulingSys.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("ClassId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Day")
                         .HasColumnType("int");
 
@@ -206,6 +234,8 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClassId");
+
                     b.HasIndex("FacultyId");
 
                     b.HasIndex("RoomId");
@@ -225,9 +255,20 @@ namespace ClassSchedulingSys.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Year")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EndYear")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("StartYear")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -242,12 +283,18 @@ namespace ClassSchedulingSys.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SchoolYearId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -425,6 +472,17 @@ namespace ClassSchedulingSys.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("ClassSchedulingSys.Models.Class", b =>
+                {
+                    b.HasOne("ClassSchedulingSys.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+                });
+
             modelBuilder.Entity("ClassSchedulingSys.Models.Room", b =>
                 {
                     b.HasOne("ClassSchedulingSys.Models.Building", "Building")
@@ -438,6 +496,12 @@ namespace ClassSchedulingSys.Migrations
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Schedule", b =>
                 {
+                    b.HasOne("ClassSchedulingSys.Models.Class", "Class")
+                        .WithMany("Schedules")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("ClassSchedulingSys.Models.ApplicationUser", "Faculty")
                         .WithMany("Schedules")
                         .HasForeignKey("FacultyId")
@@ -462,6 +526,8 @@ namespace ClassSchedulingSys.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Class");
+
                     b.Navigation("Faculty");
 
                     b.Navigation("Room");
@@ -474,7 +540,7 @@ namespace ClassSchedulingSys.Migrations
             modelBuilder.Entity("ClassSchedulingSys.Models.Semester", b =>
                 {
                     b.HasOne("ClassSchedulingSys.Models.SchoolYear", "SchoolYear")
-                        .WithMany("Semesters")
+                        .WithMany()
                         .HasForeignKey("SchoolYearId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -543,6 +609,11 @@ namespace ClassSchedulingSys.Migrations
                     b.Navigation("Rooms");
                 });
 
+            modelBuilder.Entity("ClassSchedulingSys.Models.Class", b =>
+                {
+                    b.Navigation("Schedules");
+                });
+
             modelBuilder.Entity("ClassSchedulingSys.Models.Department", b =>
                 {
                     b.Navigation("FacultyMembers");
@@ -551,11 +622,6 @@ namespace ClassSchedulingSys.Migrations
             modelBuilder.Entity("ClassSchedulingSys.Models.Room", b =>
                 {
                     b.Navigation("Schedules");
-                });
-
-            modelBuilder.Entity("ClassSchedulingSys.Models.SchoolYear", b =>
-                {
-                    b.Navigation("Semesters");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Semester", b =>
