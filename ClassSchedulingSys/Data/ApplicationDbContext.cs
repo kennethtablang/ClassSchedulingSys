@@ -19,7 +19,8 @@ namespace ClassSchedulingSys.Data
         public DbSet<SchoolYear> SchoolYears { get; set; }
         public DbSet<Semester> Semesters { get; set; }
         public DbSet<Schedule> Schedules { get; set; }
-        public DbSet<Class> Classes { get; set; }
+        public DbSet<ClassSection> ClassSections { get; set; }
+        public DbSet<CollegeCourse> CollegeCourses { get; set; }
 
     }
 }

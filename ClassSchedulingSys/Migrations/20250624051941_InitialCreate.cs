@@ -40,6 +40,21 @@ namespace ClassSchedulingSys.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "CollegeCourse",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Code = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    IsArchived = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CollegeCourse", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Departments",
                 columns: table => new
                 {
@@ -165,32 +180,15 @@ namespace ClassSchedulingSys.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Classes",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    DepartmentId = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Classes", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Classes_Departments_DepartmentId",
-                        column: x => x.DepartmentId,
-                        principalTable: "Departments",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Semesters",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    EndDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IsCurrent = table.Column<bool>(type: "bit", nullable: false),
                     SchoolYearId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -290,6 +288,35 @@ namespace ClassSchedulingSys.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ClassSections",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Section = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    YearLevel = table.Column<int>(type: "int", nullable: false),
+                    CollegeCourseId = table.Column<int>(type: "int", nullable: false),
+                    SemesterId = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ClassSections", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ClassSections_CollegeCourse_CollegeCourseId",
+                        column: x => x.CollegeCourseId,
+                        principalTable: "CollegeCourse",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ClassSections_Semesters_SemesterId",
+                        column: x => x.SemesterId,
+                        principalTable: "Semesters",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Schedules",
                 columns: table => new
                 {
@@ -301,8 +328,7 @@ namespace ClassSchedulingSys.Migrations
                     Day = table.Column<int>(type: "int", nullable: false),
                     StartTime = table.Column<TimeSpan>(type: "time", nullable: false),
                     EndTime = table.Column<TimeSpan>(type: "time", nullable: false),
-                    SemesterId = table.Column<int>(type: "int", nullable: false),
-                    ClassId = table.Column<int>(type: "int", nullable: false)
+                    SemesterId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -311,12 +337,6 @@ namespace ClassSchedulingSys.Migrations
                         name: "FK_Schedules_AspNetUsers_FacultyId",
                         column: x => x.FacultyId,
                         principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Schedules_Classes_ClassId",
-                        column: x => x.ClassId,
-                        principalTable: "Classes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
@@ -384,19 +404,19 @@ namespace ClassSchedulingSys.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Classes_DepartmentId",
-                table: "Classes",
-                column: "DepartmentId");
+                name: "IX_ClassSections_CollegeCourseId",
+                table: "ClassSections",
+                column: "CollegeCourseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ClassSections_SemesterId",
+                table: "ClassSections",
+                column: "SemesterId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Rooms_BuildingId",
                 table: "Rooms",
                 column: "BuildingId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Schedules_ClassId",
-                table: "Schedules",
-                column: "ClassId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Schedules_FacultyId",
@@ -443,16 +463,19 @@ namespace ClassSchedulingSys.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
+                name: "ClassSections");
+
+            migrationBuilder.DropTable(
                 name: "Schedules");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
-                name: "AspNetUsers");
+                name: "CollegeCourse");
 
             migrationBuilder.DropTable(
-                name: "Classes");
+                name: "AspNetUsers");
 
             migrationBuilder.DropTable(
                 name: "Rooms");
