@@ -1,4 +1,5 @@
 ﻿using ClassSchedulingSys.Data;
+using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,194 +21,217 @@ namespace ClassSchedulingSys.Controllers
 
         // GET: api/schedule
         [HttpGet]
-        public async Task<IActionResult> GetSchedules()
+        public async Task<ActionResult<IEnumerable<ScheduleReadDto>>> GetAll()
         {
             var schedules = await _context.Schedules
+                .Include(s => s.Room)
                 .Include(s => s.Subject)
                 .Include(s => s.Faculty)
-                .Include(s => s.Room)
-                .Include(s => s.Semester)
-                    .ThenInclude(sem => sem.SchoolYear)
-                .Include(s => s.Class)
+                .Include(s => s.ClassSection)
                 .ToListAsync();
 
-            return Ok(schedules);
+            var result = schedules.Select(s => new ScheduleReadDto
+            {
+                Id = s.Id,
+                Day = s.Day,
+                StartTime = s.StartTime,
+                EndTime = s.EndTime,
+                RoomId = s.RoomId,
+                RoomName = s.Room?.Name ?? "",
+                FacultyId = s.FacultyId,
+                FacultyName = $"{s.Faculty?.FirstName} {s.Faculty?.LastName}",
+                SubjectId = s.SubjectId,
+                SubjectTitle = s.Subject?.SubjectTitle ?? "",
+                SubjectColor = s.Subject?.Color ?? "#000000",
+                SubjectUnits = s.Subject?.Units ?? 0,
+                ClassSectionId = s.ClassSectionId,
+                ClassSectionName = s.ClassSection?.Section ?? ""
+            }).ToList();
+
+            return Ok(result);
         }
 
         // GET: api/schedule/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetSchedule(int id)
+        public async Task<ActionResult<ScheduleReadDto>> GetById(int id)
         {
-            var schedule = await _context.Schedules
-                .Include(s => s.Subject)
-                .Include(s => s.Faculty)
-                .Include(s => s.Room)
-                .Include(s => s.Semester)
-                    .ThenInclude(sem => sem.SchoolYear)
-                .Include(s => s.Class)
-                .FirstOrDefaultAsync(s => s.Id == id);
+            var s = await _context.Schedules
+                .Include(x => x.Room)
+                .Include(x => x.Subject)
+                .Include(x => x.Faculty)
+                .Include(x => x.ClassSection)
+                .FirstOrDefaultAsync(x => x.Id == id);
 
-            if (schedule == null) return NotFound();
-            return Ok(schedule);
-        }
+            if (s == null) return NotFound();
 
-        // GET: api/schedule/faculty/{id}
-        [HttpGet("faculty/{id}")]
-        public async Task<IActionResult> GetSchedulesByFaculty(string id)
-        {
-            var schedules = await _context.Schedules
-                .Where(s => s.FacultyId == id)
-                .Include(s => s.Subject)
-                .Include(s => s.Room)
-                .Include(s => s.Semester)
-                    .ThenInclude(sem => sem.SchoolYear)
-                .Include(s => s.Class)
-                .ToListAsync();
+            var dto = new ScheduleReadDto
+            {
+                Id = s.Id,
+                Day = s.Day,
+                StartTime = s.StartTime,
+                EndTime = s.EndTime,
+                RoomId = s.RoomId,
+                RoomName = s.Room?.Name ?? "",
+                FacultyId = s.FacultyId,
+                FacultyName = $"{s.Faculty?.FirstName} {s.Faculty?.LastName}",
+                SubjectId = s.SubjectId,
+                SubjectTitle = s.Subject?.SubjectTitle ?? "",
+                SubjectColor = s.Subject?.Color ?? "#000000",
+                SubjectUnits = s.Subject?.Units ?? 0,
+                ClassSectionId = s.ClassSectionId,
+                ClassSectionName = s.ClassSection?.Section ?? ""
+            };
 
-            return Ok(schedules);
-        }
-
-        // GET: api/schedule/room/{id}
-        [HttpGet("room/{id}")]
-        public async Task<IActionResult> GetSchedulesByRoom(int id)
-        {
-            var schedules = await _context.Schedules
-                .Where(s => s.RoomId == id)
-                .Include(s => s.Subject)
-                .Include(s => s.Faculty)
-                .Include(s => s.Semester)
-                    .ThenInclude(sem => sem.SchoolYear)
-                .Include(s => s.Class)
-                .ToListAsync();
-
-            return Ok(schedules);
-        }
-
-        // GET: api/schedule/semester/{id}
-        [HttpGet("semester/{id}")]
-        public async Task<IActionResult> GetSchedulesBySemester(int id)
-        {
-            var schedules = await _context.Schedules
-                .Where(s => s.SemesterId == id)
-                .Include(s => s.Subject)
-                .Include(s => s.Faculty)
-                .Include(s => s.Room)
-                .Include(s => s.Semester)
-                    .ThenInclude(sem => sem.SchoolYear)
-                .Include(s => s.Class)
-                .ToListAsync();
-
-            return Ok(schedules);
-        }
-
-        // GET: api/schedule/class/{id}
-        [HttpGet("class/{id}")]
-        public async Task<IActionResult> GetSchedulesByClass(int id)
-        {
-            var schedules = await _context.Schedules
-                .Where(s => s.ClassId == id)
-                .Include(s => s.Subject)
-                .Include(s => s.Faculty)
-                .Include(s => s.Room)
-                .Include(s => s.Semester)
-                    .ThenInclude(sem => sem.SchoolYear)
-                .Include(s => s.Class)
-                .ToListAsync();
-
-            return Ok(schedules);
+            return Ok(dto);
         }
 
         // POST: api/schedule
         [HttpPost]
-        public async Task<IActionResult> CreateSchedule([FromBody] Schedule schedule)
+        public async Task<ActionResult> Create(ScheduleCreateDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            if (schedule.StartTime >= schedule.EndTime)
-                return BadRequest("Start time must be earlier than end time.");
-
-            // Conflict check for faculty
-            var facultyConflict = await _context.Schedules.AnyAsync(s =>
-                s.FacultyId == schedule.FacultyId &&
-                s.Day == schedule.Day &&
-                s.StartTime < schedule.EndTime &&
-                s.EndTime > schedule.StartTime);
-
-            if (facultyConflict)
-                return Conflict("Faculty is already assigned during this time.");
-
-            // Conflict check for room
-            var roomConflict = await _context.Schedules.AnyAsync(s =>
-                s.RoomId == schedule.RoomId &&
-                s.Day == schedule.Day &&
-                s.StartTime < schedule.EndTime &&
-                s.EndTime > schedule.StartTime);
-
-            if (roomConflict)
-                return Conflict("Room is already booked during this time.");
+            var schedule = new Schedule
+            {
+                Day = dto.Day,
+                StartTime = dto.StartTime,
+                EndTime = dto.EndTime,
+                RoomId = dto.RoomId,
+                FacultyId = dto.FacultyId,
+                SubjectId = dto.SubjectId,
+                ClassSectionId = dto.ClassSectionId
+            };
 
             _context.Schedules.Add(schedule);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetSchedule), new { id = schedule.Id }, schedule);
+            return Ok(new { message = "Schedule created successfully." });
         }
 
         // PUT: api/schedule/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSchedule(int id, [FromBody] Schedule updatedSchedule)
+        public async Task<IActionResult> Update(int id, ScheduleUpdateDto dto)
         {
-            if (id != updatedSchedule.Id) return BadRequest("ID mismatch");
+            var schedule = await _context.Schedules.FindAsync(id);
+            if (schedule == null) return NotFound();
 
-            if (updatedSchedule.StartTime >= updatedSchedule.EndTime)
-                return BadRequest("Start time must be earlier than end time.");
-
-            var existing = await _context.Schedules.FindAsync(id);
-            if (existing == null) return NotFound();
-
-            // Conflict checks (excluding the current one)
-            var conflictFaculty = await _context.Schedules.AnyAsync(s =>
-                s.Id != id &&
-                s.FacultyId == updatedSchedule.FacultyId &&
-                s.Day == updatedSchedule.Day &&
-                s.StartTime < updatedSchedule.EndTime &&
-                s.EndTime > updatedSchedule.StartTime);
-
-            var conflictRoom = await _context.Schedules.AnyAsync(s =>
-                s.Id != id &&
-                s.RoomId == updatedSchedule.RoomId &&
-                s.Day == updatedSchedule.Day &&
-                s.StartTime < updatedSchedule.EndTime &&
-                s.EndTime > updatedSchedule.StartTime);
-
-            if (conflictFaculty)
-                return Conflict("Faculty has a schedule conflict.");
-
-            if (conflictRoom)
-                return Conflict("Room is already booked.");
-
-            existing.SubjectId = updatedSchedule.SubjectId;
-            existing.FacultyId = updatedSchedule.FacultyId;
-            existing.RoomId = updatedSchedule.RoomId;
-            existing.SemesterId = updatedSchedule.SemesterId;
-            existing.ClassId = updatedSchedule.ClassId;
-            existing.Day = updatedSchedule.Day;
-            existing.StartTime = updatedSchedule.StartTime;
-            existing.EndTime = updatedSchedule.EndTime;
+            schedule.Day = dto.Day;
+            schedule.StartTime = dto.StartTime;
+            schedule.EndTime = dto.EndTime;
+            schedule.RoomId = dto.RoomId;
+            schedule.FacultyId = dto.FacultyId;
+            schedule.SubjectId = dto.SubjectId;
+            schedule.ClassSectionId = dto.ClassSectionId;
 
             await _context.SaveChangesAsync();
-            return NoContent();
+            return Ok(new { message = "Schedule updated successfully." });
         }
 
         // DELETE: api/schedule/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteSchedule(int id)
+        public async Task<IActionResult> Delete(int id)
         {
             var schedule = await _context.Schedules.FindAsync(id);
             if (schedule == null) return NotFound();
 
             _context.Schedules.Remove(schedule);
             await _context.SaveChangesAsync();
-            return Ok(new { message = $"Schedule {id} deleted." });
+
+            return Ok(new { message = "Schedule deleted successfully." });
+        }
+
+        // GET: api/schedule/by-section/{sectionId}
+        [HttpGet("by-section/{sectionId}")]
+        public async Task<IActionResult> GetBySection(int sectionId)
+        {
+            var schedules = await _context.Schedules
+                .Include(s => s.Subject)
+                .Include(s => s.Room)
+                .Include(s => s.ClassSection)
+                .Include(s => s.Faculty)
+                .Where(s => s.ClassSectionId == sectionId)
+                .ToListAsync();
+
+            var result = schedules.Select(s => new ScheduleReadDto
+            {
+                Id = s.Id,
+                Day = s.Day,
+                StartTime = s.StartTime,
+                EndTime = s.EndTime,
+                SubjectId = s.SubjectId,
+                SubjectTitle = s.Subject?.SubjectTitle,
+                SubjectColor = s.Subject?.Color,
+                FacultyId = s.FacultyId,
+                FacultyName = $"{s.Faculty?.FirstName} {s.Faculty?.LastName}",
+                RoomId = s.RoomId,
+                RoomName = s.Room?.Name,
+                ClassSectionId = s.ClassSectionId,
+                ClassSectionName = s.ClassSection?.Section
+            });
+
+            return Ok(result);
+        }
+
+        // GET: api/schedule/by-faculty/{facultyId}
+        [HttpGet("by-faculty/{facultyId}")]
+        public async Task<IActionResult> GetByFaculty(string facultyId)
+        {
+            var schedules = await _context.Schedules
+                .Include(s => s.Subject)
+                .Include(s => s.Room)
+                .Include(s => s.ClassSection)
+                .Include(s => s.Faculty)
+                .Where(s => s.FacultyId == facultyId)
+                .ToListAsync();
+
+            var result = schedules.Select(s => new ScheduleReadDto
+            {
+                Id = s.Id,
+                Day = s.Day,
+                StartTime = s.StartTime,
+                EndTime = s.EndTime,
+                SubjectId = s.SubjectId,
+                SubjectTitle = s.Subject?.SubjectTitle,
+                SubjectColor = s.Subject?.Color,
+                FacultyId = s.FacultyId,
+                FacultyName = $"{s.Faculty?.FirstName} {s.Faculty?.LastName}",
+                RoomId = s.RoomId,
+                RoomName = s.Room?.Name,
+                ClassSectionId = s.ClassSectionId,
+                ClassSectionName = s.ClassSection?.Section
+            });
+
+            return Ok(result);
+        }
+
+        // GET: api/schedule/by-room/{roomId}
+        [HttpGet("by-room/{roomId}")]
+        public async Task<IActionResult> GetByRoom(int roomId)
+        {
+            var schedules = await _context.Schedules
+                .Include(s => s.Subject)
+                .Include(s => s.Room)
+                .Include(s => s.ClassSection)
+                .Include(s => s.Faculty)
+                .Where(s => s.RoomId == roomId)
+                .ToListAsync();
+
+            var result = schedules.Select(s => new ScheduleReadDto
+            {
+                Id = s.Id,
+                Day = s.Day,
+                StartTime = s.StartTime,
+                EndTime = s.EndTime,
+                SubjectId = s.SubjectId,
+                SubjectTitle = s.Subject?.SubjectTitle,
+                SubjectColor = s.Subject?.Color,
+                FacultyId = s.FacultyId,
+                FacultyName = $"{s.Faculty?.FirstName} {s.Faculty?.LastName}",
+                RoomId = s.RoomId,
+                RoomName = s.Room?.Name,
+                ClassSectionId = s.ClassSectionId,
+                ClassSectionName = s.ClassSection?.Section
+            });
+
+            return Ok(result);
         }
     }
 }

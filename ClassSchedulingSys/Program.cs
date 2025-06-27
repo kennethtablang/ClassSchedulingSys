@@ -62,7 +62,7 @@ namespace ClassSchedulingSys
 
             // 5. Token service
             builder.Services.AddScoped<ITokenService, TokenService>();
-
+            builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
             // 6. Controllers
             builder.Services.AddControllers();
 

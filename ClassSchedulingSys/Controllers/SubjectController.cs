@@ -1,4 +1,6 @@
-﻿using ClassSchedulingSys.Data;
+﻿using AutoMapper;
+using ClassSchedulingSys.Data;
+using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,80 +10,87 @@ namespace ClassSchedulingSys.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Dean,SuperAdmin")]
     public class SubjectController : Controller
     {
-        public readonly ApplicationDbContext _context;
+        private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper;
 
-        //constructor
-        public SubjectController(ApplicationDbContext context)
+        public SubjectController(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
-        //GET: api/subject
+        // GET: api/Subject
         [HttpGet]
-        public async Task<IActionResult> GetSubjects()
+        public async Task<ActionResult<IEnumerable<SubjectReadDTO>>> GetSubjects()
         {
-            var subjects = await _context.Subjects.ToListAsync();
-            return Ok(subjects);
+            var subjects = await _context.Subjects
+                .Where(s => s.IsActive)
+                .Include(s => s.CollegeCourse)
+                .ToListAsync();
+
+            var subjectDTOs = _mapper.Map<List<SubjectReadDTO>>(subjects);
+            return Ok(subjectDTOs);
         }
 
-        //GET: api/subject/{id}
+        // GET: api/Subject/5
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetSubject(int id)
+        public async Task<ActionResult<SubjectReadDTO>> GetSubject(int id)
         {
-            var subject = await _context.Subjects.FindAsync(id);
+            var subject = await _context.Subjects
+                .Include(s => s.CollegeCourse)
+                .FirstOrDefaultAsync(s => s.Id == id && s.IsActive);
+
             if (subject == null)
-            {
                 return NotFound();
-            }
-            return Ok(subject);
+
+            return _mapper.Map<SubjectReadDTO>(subject);
         }
 
-        //POST: api/subject
+        // POST: api/Subject
         [HttpPost]
-        public async Task<IActionResult> CreateSubject([FromBody] Subject subject)
+        [Authorize(Roles = "Dean,SuperAdmin")]
+        public async Task<ActionResult<SubjectReadDTO>> CreateSubject(SubjectCreateDTO dto)
         {
-            if (subject == null || string.IsNullOrWhiteSpace(subject.Code) || string.IsNullOrWhiteSpace(subject.Title))
-            {
-                return BadRequest("Invalid subject data.");
-            }
+            var subject = _mapper.Map<Subject>(dto);
+            subject.IsActive = true;
+
             _context.Subjects.Add(subject);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetSubject), new { id = subject.Id }, subject);
+
+            var subjectDTO = _mapper.Map<SubjectReadDTO>(subject);
+            return CreatedAtAction(nameof(GetSubject), new { id = subject.Id }, subjectDTO);
         }
 
-        // PUT: api/subject/5
+        // PUT: api/Subject/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSubject(int id, [FromBody] Subject subject)
+        [Authorize(Roles = "Dean,SuperAdmin")]
+        public async Task<IActionResult> UpdateSubject(int id, SubjectUpdateDTO dto)
         {
-            if (id != subject.Id)
-                return BadRequest("ID mismatch");
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var exists = await _context.Subjects.AnyAsync(c => c.Id == id);
-            if (!exists)
+            var subject = await _context.Subjects.FindAsync(id);
+            if (subject == null || !subject.IsActive)
                 return NotFound();
 
-            _context.Entry(subject).State = EntityState.Modified;
+            _mapper.Map(dto, subject);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
-        // DELETE: api/subject/5
+        // DELETE: api/Subject/5 (Soft Delete)
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteSubject(int id)
+        [Authorize(Roles = "Dean,SuperAdmin")]
+        public async Task<IActionResult> SoftDeleteSubject(int id)
         {
             var subject = await _context.Subjects.FindAsync(id);
-            if (subject == null)
+            if (subject == null || !subject.IsActive)
                 return NotFound();
 
-            _context.Subjects.Remove(subject);
+            subject.IsActive = false;
             await _context.SaveChangesAsync();
-            return Ok(new { Message = $"Subject {id} deleted successfully." });
+
+            return NoContent();
         }
     }
 }

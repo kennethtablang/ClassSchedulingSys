@@ -1,4 +1,6 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace ClassSchedulingSys.DTO
 {
     public class ClassSectionDto
     {

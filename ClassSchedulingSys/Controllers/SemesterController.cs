@@ -42,6 +42,30 @@ namespace ClassSchedulingSys.Controllers
             return Ok(semesters);
         }
 
+        [HttpGet("current")]
+        public async Task<ActionResult<IEnumerable<SemesterDto>>> GetCurrent()
+        {
+            var semesters = await _context.Semesters
+                .Include(s => s.SchoolYear)
+                .Where(s => s.IsCurrent)
+                .Select(s => new SemesterDto
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    StartDate = s.StartDate,
+                    EndDate = s.EndDate,
+                    SchoolYearId = s.SchoolYearId,
+                    IsCurrent = s.IsCurrent,
+                    IsSchoolYearCurrent = s.SchoolYear != null && s.SchoolYear.IsCurrent,
+                    SchoolYearLabel = s.SchoolYear != null
+                        ? $"{s.SchoolYear.StartYear}-{s.SchoolYear.EndYear}"
+                        : null
+                })
+                .ToListAsync();
+
+            return Ok(semesters);
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<SemesterDto>> GetById(int id)
         {

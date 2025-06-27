@@ -7,14 +7,22 @@ namespace ClassSchedulingSys.Models
         public int Id { get; set; }
 
         [Required]
-        public string Code { get; set; } = null!; // e.g., CS101
-
+        public string SubjectCode { get; set; }
         [Required]
-        public string Title { get; set; } = null!; // e.g., Introduction to Programming
-
-        public string? Description { get; set; }
-
+        public string SubjectTitle { get; set; }
         public int Units { get; set; }
+        public string SubjectType { get; set; }
+        public string YearLevel { get; set; }
+
+        public string? Color { get; set; }
+
+        public int CollegeCourseId { get; set; }
+        public CollegeCourse CollegeCourse { get; set; }
+
+        //public int SemesterId { get; set; }
+        //public Semester Semester { get; set; }
+
+        public bool IsActive { get; set; } = true;
 
         public ICollection<Schedule>? Schedules { get; set; } // inverse property
 

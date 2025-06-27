@@ -1,4 +1,5 @@
 ﻿using ClassSchedulingSys.Data;
+using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,7 @@ namespace ClassSchedulingSys.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Dean,SuperAdmin")]
+    [Authorize(Roles = "SuperAdmin")]
     public class BuildingController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -20,65 +21,109 @@ namespace ClassSchedulingSys.Controllers
 
         // GET: api/building
         [HttpGet]
-        public async Task<IActionResult> GetBuildings()
+        public async Task<IActionResult> GetAll()
         {
-            var buildings = await _context.Buildings.Include(b => b.Rooms).ToListAsync();
-            return Ok(buildings);
+            var buildings = await _context.Buildings
+                .Include(b => b.Rooms)
+                .ToListAsync();
+
+            var result = buildings.Select(b => new BuildingReadDto
+            {
+                Id = b.Id,
+                Name = b.Name,
+                Description = b.Description,
+                IsActive = b.IsActive,
+                Rooms = b.Rooms?.Select(r => new RoomDto
+                {
+                    Id = r.Id,
+                    Name = r.Name
+                }).ToList()
+            });
+
+            return Ok(result);
         }
 
         // GET: api/building/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetBuilding(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var building = await _context.Buildings.Include(b => b.Rooms).FirstOrDefaultAsync(b => b.Id == id);
+            var building = await _context.Buildings
+                .Include(b => b.Rooms)
+                .FirstOrDefaultAsync(b => b.Id == id);
+
             if (building == null)
                 return NotFound();
 
-            return Ok(building);
+            var dto = new BuildingReadDto
+            {
+                Id = building.Id,
+                Name = building.Name,
+                Description = building.Description,
+                IsActive = building.IsActive,
+                Rooms = building.Rooms?.Select(r => new RoomDto
+                {
+                    Id = r.Id,
+                    Name = r.Name
+                }).ToList()
+            };
+
+            return Ok(dto);
         }
 
         // POST: api/building
         [HttpPost]
-        public async Task<IActionResult> CreateBuilding([FromBody] Building building)
+        public async Task<IActionResult> Create([FromBody] BuildingCreateDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var building = new Building
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                IsActive = true
+            };
 
             _context.Buildings.Add(building);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetBuilding), new { id = building.Id }, building);
+
+            return Ok(new { message = "Building created successfully." });
         }
 
         // PUT: api/building/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateBuilding(int id, [FromBody] Building updatedBuilding)
+        public async Task<IActionResult> Update(int id, [FromBody] BuildingUpdateDto dto)
         {
-            if (id != updatedBuilding.Id)
-                return BadRequest("ID mismatch");
-
             var building = await _context.Buildings.FindAsync(id);
             if (building == null)
                 return NotFound();
 
-            building.Name = updatedBuilding.Name;
-            building.Description = updatedBuilding.Description;
+            building.Name = dto.Name;
+            building.Description = dto.Description;
+            building.IsActive = dto.IsActive;
 
-            _context.Buildings.Update(building);
             await _context.SaveChangesAsync();
-            return NoContent();
+
+            return Ok(new { message = "Building updated successfully." });
         }
 
         // DELETE: api/building/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteBuilding(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var building = await _context.Buildings.FindAsync(id);
+            var building = await _context.Buildings
+                .Include(b => b.Rooms)
+                .FirstOrDefaultAsync(b => b.Id == id);
+
             if (building == null)
                 return NotFound();
 
+            if (building.Rooms != null && building.Rooms.Any())
+            {
+                return BadRequest("Cannot delete a building with associated rooms.");
+            }
+
             _context.Buildings.Remove(building);
             await _context.SaveChangesAsync();
-            return Ok(new { Message = $"Building {id} deleted successfully." });
+
+            return Ok(new { message = "Building deleted successfully." });
         }
     }
 }

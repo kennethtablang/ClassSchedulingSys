@@ -1,4 +1,5 @@
 ﻿using ClassSchedulingSys.Data;
+using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,67 +21,104 @@ namespace ClassSchedulingSys.Controllers
 
         // GET: api/room
         [HttpGet]
-        public async Task<IActionResult> GetRooms()
+        public async Task<IActionResult> GetAll()
         {
-            var rooms = await _context.Rooms.Include(r => r.Building).ToListAsync();
-            return Ok(rooms);
+            var rooms = await _context.Rooms
+                .Include(r => r.Building)
+                .ToListAsync();
+
+            var result = rooms.Select(r => new RoomReadDto
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Capacity = r.Capacity,
+                Type = r.Type,
+                BuildingId = r.BuildingId,
+                BuildingName = r.Building?.Name
+            });
+
+            return Ok(result);
         }
 
         // GET: api/room/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetRoom(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var room = await _context.Rooms.Include(r => r.Building).FirstOrDefaultAsync(r => r.Id == id);
+            var room = await _context.Rooms
+                .Include(r => r.Building)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (room == null)
                 return NotFound();
 
-            return Ok(room);
+            var dto = new RoomReadDto
+            {
+                Id = room.Id,
+                Name = room.Name,
+                Capacity = room.Capacity,
+                Type = room.Type,
+                BuildingId = room.BuildingId,
+                BuildingName = room.Building?.Name
+            };
+
+            return Ok(dto);
         }
 
         // POST: api/room
         [HttpPost]
-        public async Task<IActionResult> CreateRoom([FromBody] Room room)
+        public async Task<IActionResult> Create([FromBody] RoomCreateDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var room = new Room
+            {
+                Name = dto.Name,
+                Capacity = dto.Capacity,
+                Type = dto.Type,
+                BuildingId = dto.BuildingId
+            };
 
             _context.Rooms.Add(room);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetRoom), new { id = room.Id }, room);
+
+            return Ok(new { message = "Room created successfully." });
         }
 
         // PUT: api/room/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateRoom(int id, [FromBody] Room updatedRoom)
+        public async Task<IActionResult> Update(int id, [FromBody] RoomUpdateDto dto)
         {
-            if (id != updatedRoom.Id)
-                return BadRequest("ID mismatch");
-
             var room = await _context.Rooms.FindAsync(id);
             if (room == null)
                 return NotFound();
 
-            room.Name = updatedRoom.Name;
-            room.Capacity = updatedRoom.Capacity;
-            room.Type = updatedRoom.Type;
-            room.BuildingId = updatedRoom.BuildingId;
+            room.Name = dto.Name;
+            room.Capacity = dto.Capacity;
+            room.Type = dto.Type;
+            room.BuildingId = dto.BuildingId;
 
-            _context.Rooms.Update(room);
             await _context.SaveChangesAsync();
-            return NoContent();
+
+            return Ok(new { message = "Room updated successfully." });
         }
 
         // DELETE: api/room/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteRoom(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var room = await _context.Rooms.FindAsync(id);
+            var room = await _context.Rooms
+                .Include(r => r.Schedules)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (room == null)
                 return NotFound();
 
+            if (room.Schedules != null && room.Schedules.Any())
+                return BadRequest("Cannot delete a room with associated schedules.");
+
             _context.Rooms.Remove(room);
             await _context.SaveChangesAsync();
-            return Ok(new { Message = $"Room {id} deleted successfully." });
+
+            return Ok(new { message = "Room deleted successfully." });
         }
+
     }
 }

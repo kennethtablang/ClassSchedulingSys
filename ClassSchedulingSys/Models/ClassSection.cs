@@ -17,5 +17,6 @@
         // Foreign key to the semester this section belongs to
         public int SemesterId { get; set; }
         public Semester Semester { get; set; } = null!;
+
     }
 }

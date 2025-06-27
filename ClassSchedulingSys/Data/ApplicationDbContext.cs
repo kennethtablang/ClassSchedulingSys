@@ -1,6 +1,7 @@
 ﻿using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 
 namespace ClassSchedulingSys.Data
 {
@@ -22,5 +23,21 @@ namespace ClassSchedulingSys.Data
         public DbSet<ClassSection> ClassSections { get; set; }
         public DbSet<CollegeCourse> CollegeCourses { get; set; }
 
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            // Customizing the ASP.NET Identity model and overriding the defaults if needed.
+            // For example, you can rename the ASP.NET Identity table names and more.
+            // Add your customizations after calling base.OnModelCreating(builder);
+
+            modelBuilder.Entity<Schedule>()
+                .HasOne(s => s.Subject)
+                .WithMany(su => su.Schedules)
+                .HasForeignKey(s => s.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict); // or .NoAction()
+
+        }
     }
+
 }
