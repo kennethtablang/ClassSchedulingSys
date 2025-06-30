@@ -72,9 +72,7 @@ namespace ClassSchedulingSys.DTO
 
         public string CollegeCourseName { get; set; } // Optional for display
 
-        //public int SemesterId { get; set; }
 
-        //public string SemesterName { get; set; } // Optional for display
 
         public string? Color { get; set; }
 

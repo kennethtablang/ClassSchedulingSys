@@ -19,12 +19,11 @@ namespace ClassSchedulingSys.Models
         public int CollegeCourseId { get; set; }
         public CollegeCourse CollegeCourse { get; set; }
 
-        //public int SemesterId { get; set; }
-        //public Semester Semester { get; set; }
-
         public bool IsActive { get; set; } = true;
 
-        public ICollection<Schedule>? Schedules { get; set; } // inverse property
+        public ICollection<Schedule>? Schedules { get; set; }
+
+        public ICollection<FacultySubjectAssignment>? FacultySubjectAssignments { get; set; }
 
     }
 }

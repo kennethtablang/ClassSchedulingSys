@@ -22,7 +22,7 @@ namespace ClassSchedulingSys.Data
         public DbSet<Schedule> Schedules { get; set; }
         public DbSet<ClassSection> ClassSections { get; set; }
         public DbSet<CollegeCourse> CollegeCourses { get; set; }
-
+        public DbSet<FacultySubjectAssignment> FacultySubjectAssignments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -37,7 +37,27 @@ namespace ClassSchedulingSys.Data
                 .HasForeignKey(s => s.SubjectId)
                 .OnDelete(DeleteBehavior.Restrict); // or .NoAction()
 
+            // Configure composite key and relationships for FacultySubjectAssignment
+            modelBuilder.Entity<FacultySubjectAssignment>()
+                .HasKey(fsa => new { fsa.FacultyId, fsa.SubjectId, fsa.ClassSectionId });
+
+            modelBuilder.Entity<FacultySubjectAssignment>()
+                .HasOne(fsa => fsa.Faculty)
+                .WithMany(f => f.FacultySubjectAssignments)
+                .HasForeignKey(fsa => fsa.FacultyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FacultySubjectAssignment>()
+                .HasOne(fsa => fsa.Subject)
+                .WithMany(s => s.FacultySubjectAssignments)
+                .HasForeignKey(fsa => fsa.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FacultySubjectAssignment>()
+                .HasOne(fsa => fsa.ClassSection)
+                .WithMany(cs => cs.FacultySubjectAssignments)
+                .HasForeignKey(fsa => fsa.ClassSectionId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
-
 }

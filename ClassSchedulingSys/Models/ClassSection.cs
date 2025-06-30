@@ -18,5 +18,9 @@
         public int SemesterId { get; set; }
         public Semester Semester { get; set; } = null!;
 
+        public ICollection<Schedule> Schedules { get; set; }
+
+        public ICollection<FacultySubjectAssignment>? FacultySubjectAssignments { get; set; }
+
     }
 }

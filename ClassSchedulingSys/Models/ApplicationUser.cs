@@ -26,5 +26,6 @@ namespace ClassSchedulingSys.Models
         //inverse properties
         public ICollection<Schedule>? Schedules { get; set; }
 
+        public ICollection<FacultySubjectAssignment>? FacultySubjectAssignments { get; set; }
     }
 }

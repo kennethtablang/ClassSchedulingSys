@@ -125,5 +125,29 @@ namespace ClassSchedulingSys.Controllers
             return Ok(new { message = "Class section deleted." });
         }
 
+        // GET: api/classsection/{classSectionId}/subject-assignments
+        [HttpGet("{classSectionId}/subject-assignments")]
+        public async Task<IActionResult> GetSubjectAssignments(int classSectionId)
+        {
+            var assignments = await _context.Schedules
+                .Where(s => s.ClassSectionId == classSectionId && s.IsActive)
+                .Include(s => s.Subject)
+                .Include(s => s.Faculty)
+                .Select(s => new
+                {
+                    s.SubjectId,
+                    s.Subject.SubjectCode,
+                    s.Subject.SubjectTitle,
+                    s.Subject.Units,
+                    s.Subject.SubjectType,
+                    s.Subject.YearLevel,
+                    FacultyName = s.Faculty != null ? s.Faculty.FullName : "Unassigned"
+                })
+                .ToListAsync();
+
+            return Ok(assignments);
+        }
+
+
     }
 }

@@ -203,6 +203,29 @@ namespace ClassSchedulingSys.Migrations
                     b.ToTable("Departments");
                 });
 
+            modelBuilder.Entity("ClassSchedulingSys.Models.FacultySubjectAssignment", b =>
+                {
+                    b.Property<string>("FacultyId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ClassSectionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.HasKey("FacultyId", "SubjectId", "ClassSectionId");
+
+                    b.HasIndex("ClassSectionId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("FacultySubjectAssignments");
+                });
+
             modelBuilder.Entity("ClassSchedulingSys.Models.Room", b =>
                 {
                     b.Property<int>("Id")
@@ -545,6 +568,33 @@ namespace ClassSchedulingSys.Migrations
                     b.Navigation("Semester");
                 });
 
+            modelBuilder.Entity("ClassSchedulingSys.Models.FacultySubjectAssignment", b =>
+                {
+                    b.HasOne("ClassSchedulingSys.Models.ClassSection", "ClassSection")
+                        .WithMany("FacultySubjectAssignments")
+                        .HasForeignKey("ClassSectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ClassSchedulingSys.Models.ApplicationUser", "Faculty")
+                        .WithMany("FacultySubjectAssignments")
+                        .HasForeignKey("FacultyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ClassSchedulingSys.Models.Subject", "Subject")
+                        .WithMany("FacultySubjectAssignments")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ClassSection");
+
+                    b.Navigation("Faculty");
+
+                    b.Navigation("Subject");
+                });
+
             modelBuilder.Entity("ClassSchedulingSys.Models.Room", b =>
                 {
                     b.HasOne("ClassSchedulingSys.Models.Building", "Building")
@@ -559,7 +609,7 @@ namespace ClassSchedulingSys.Migrations
             modelBuilder.Entity("ClassSchedulingSys.Models.Schedule", b =>
                 {
                     b.HasOne("ClassSchedulingSys.Models.ClassSection", "ClassSection")
-                        .WithMany()
+                        .WithMany("Schedules")
                         .HasForeignKey("ClassSectionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -670,12 +720,21 @@ namespace ClassSchedulingSys.Migrations
 
             modelBuilder.Entity("ClassSchedulingSys.Models.ApplicationUser", b =>
                 {
+                    b.Navigation("FacultySubjectAssignments");
+
                     b.Navigation("Schedules");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Building", b =>
                 {
                     b.Navigation("Rooms");
+                });
+
+            modelBuilder.Entity("ClassSchedulingSys.Models.ClassSection", b =>
+                {
+                    b.Navigation("FacultySubjectAssignments");
+
+                    b.Navigation("Schedules");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.CollegeCourse", b =>
@@ -700,6 +759,8 @@ namespace ClassSchedulingSys.Migrations
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Subject", b =>
                 {
+                    b.Navigation("FacultySubjectAssignments");
+
                     b.Navigation("Schedules");
                 });
 #pragma warning restore 612, 618
