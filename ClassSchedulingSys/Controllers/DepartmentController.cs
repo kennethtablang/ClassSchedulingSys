@@ -1,4 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/DepartmentController
+﻿// ClassSchedulingSys/Controllers/DepartmentController.cs
 using ClassSchedulingSys.Data;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;

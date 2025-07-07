@@ -1,4 +1,4 @@
-﻿using System;
+﻿// ClassSchedulingSys/DTO/ScheduleDto
 using System.ComponentModel.DataAnnotations;
 
 namespace ClassSchedulingSys.DTO

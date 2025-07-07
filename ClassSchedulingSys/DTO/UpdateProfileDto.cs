@@ -1,4 +1,5 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿// ClassSchedulingSys/DTO/UpdateProfileDto.cs
+namespace ClassSchedulingSys.DTO
 {
     public class UpdateProfileDto
     {

@@ -1,4 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/ClassSectionController
+﻿// ClassSchedulingSys/Controllers/ClassSectionController.cs
 using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;

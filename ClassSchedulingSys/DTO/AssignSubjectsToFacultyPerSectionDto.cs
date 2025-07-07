@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// ClassSchedulingSys/DTO/AssignSubjectsToFacultyPerSectionDto
+using System.ComponentModel.DataAnnotations;
 
 namespace ClassSchedulingSys.DTO
 {

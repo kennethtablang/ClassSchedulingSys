@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// ClassSchedulingSys/Controllers/NotificationController
+using Microsoft.AspNetCore.Mvc;
 
 namespace ClassSchedulingSys.Controllers
 {

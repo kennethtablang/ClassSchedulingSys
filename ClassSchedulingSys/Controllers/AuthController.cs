@@ -1,4 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/AuthController
+﻿// ClassSchedulingSys/Controllers/AuthController.cs
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Interfaces;
 using ClassSchedulingSys.Models;

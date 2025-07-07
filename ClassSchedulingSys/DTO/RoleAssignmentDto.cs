@@ -1,4 +1,5 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿// ClassSchedulingSys/DTO/RoleAssignmentDto
+namespace ClassSchedulingSys.DTO
 {
     public class RoleAssignmentDto
     {

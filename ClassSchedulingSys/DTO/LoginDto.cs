@@ -1,4 +1,5 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿// ClassSchedulingSys/DTO/LoginDto.cs
+namespace ClassSchedulingSys.DTO
 {
     public class LoginDto
     {

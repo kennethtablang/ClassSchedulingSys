@@ -1,4 +1,5 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿// ClassSchedulingSys/DTO/AdminResetPasswordDto
+namespace ClassSchedulingSys.DTO
 {
     public class AdminResetPasswordDto
     {

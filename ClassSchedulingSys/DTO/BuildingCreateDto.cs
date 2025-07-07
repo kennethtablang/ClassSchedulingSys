@@ -1,4 +1,4 @@
-﻿// DTO/BuildingCreateDto.cs
+﻿// ClassSchedulingSys/DTO/BuildingCreateDto.cs
 using System.ComponentModel.DataAnnotations;
 
 namespace ClassSchedulingSys.DTO

@@ -1,4 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/FacultyController
+﻿// ClassSchedulingSys/Controllers/FacultyController.cs
 using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;

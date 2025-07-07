@@ -1,4 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/DashboardController
+﻿// ClassSchedulingSys/Controllers/DashboardController.cs
 using ClassSchedulingSys.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿// ClassSchedulingSys/Controllers/SubjectController
+using AutoMapper;
 using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;

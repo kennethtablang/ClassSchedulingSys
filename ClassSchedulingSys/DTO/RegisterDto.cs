@@ -1,4 +1,5 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿// ClassSchedulingSys/DTO/RegisterDto
+namespace ClassSchedulingSys.DTO
 {
     public class RegisterDto
     {

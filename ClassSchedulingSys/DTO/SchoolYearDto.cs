@@ -1,4 +1,5 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿// ClassSchedulingSys/DTO/SchoolYearDto
+namespace ClassSchedulingSys.DTO
 {
     public class SchoolYearDto
     {

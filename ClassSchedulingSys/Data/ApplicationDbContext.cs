@@ -1,4 +1,5 @@
-﻿using ClassSchedulingSys.Models;
+﻿// ClassSchedulingSys/Data/ApplicationDbContext
+using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection.Emit;

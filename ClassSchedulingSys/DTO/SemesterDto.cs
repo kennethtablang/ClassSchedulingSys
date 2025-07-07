@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// ClassSchedulingSys/DTO/SemesterDto
+using System.ComponentModel.DataAnnotations;
 
 namespace ClassSchedulingSys.DTO
 {

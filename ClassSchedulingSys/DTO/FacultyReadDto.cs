@@ -1,4 +1,5 @@
-﻿namespace ClassSchedulingSys.DTO
+﻿// ClassSchedulingSys/DTO/FacultyReadDto.cs
+namespace ClassSchedulingSys.DTO
 {
     public class FacultyReadDto
     {

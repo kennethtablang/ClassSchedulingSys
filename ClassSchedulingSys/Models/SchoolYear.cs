@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// ClassSchedulingSys/Models/SchoolYear
+using System.ComponentModel.DataAnnotations;
 
 namespace ClassSchedulingSys.Models
 {
