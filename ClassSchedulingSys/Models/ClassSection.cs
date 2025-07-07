@@ -1,26 +1,28 @@
-﻿namespace ClassSchedulingSys.Models
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace ClassSchedulingSys.Models
 {
     public class ClassSection
     {
         public int Id { get; set; } // Primary Key
 
-        // Section label (e.g., A, B, C)
+        [Required]
         public string Section { get; set; } = string.Empty;
 
-        // Year level (1st year, 2nd year, etc.)
         public int YearLevel { get; set; }
 
-        // Foreign key to the course this section belongs to
         public int CollegeCourseId { get; set; }
+        [ForeignKey("CollegeCourseId")]
         public CollegeCourse CollegeCourse { get; set; } = null!;
 
-        // Foreign key to the semester this section belongs to
         public int SemesterId { get; set; }
+        [ForeignKey("SemesterId")]
         public Semester Semester { get; set; } = null!;
 
-        public ICollection<Schedule> Schedules { get; set; }
+        public ICollection<Schedule> Schedules { get; set; } = new List<Schedule>();
 
-        public ICollection<FacultySubjectAssignment>? FacultySubjectAssignments { get; set; }
+        public ICollection<FacultySubjectAssignment> FacultySubjectAssignments { get; set; } = new List<FacultySubjectAssignment>();
 
     }
 }

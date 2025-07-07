@@ -1,16 +1,26 @@
-﻿namespace ClassSchedulingSys.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
+
+namespace ClassSchedulingSys.Models
 {
     public class FacultySubjectAssignment
     {
-        public int Id { get; set; }
+        [Required]
+        public string FacultyId { get; set; } = string.Empty;
 
-        public string FacultyId { get; set; }
-        public ApplicationUser Faculty { get; set; }
+        [ForeignKey("FacultyId")]
+        public ApplicationUser Faculty { get; set; } = null!;
 
+        [Required]
         public int SubjectId { get; set; }
-        public Subject Subject { get; set; }
 
+        [ForeignKey("SubjectId")]
+        public Subject Subject { get; set; } = null!;
+
+        [Required]
         public int ClassSectionId { get; set; }
-        public ClassSection ClassSection { get; set; }
+
+        [ForeignKey("ClassSectionId")]
+        public ClassSection ClassSection { get; set; } = null!;
     }
 }

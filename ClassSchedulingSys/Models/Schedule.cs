@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ClassSchedulingSys.Models
@@ -34,9 +35,16 @@ namespace ClassSchedulingSys.Models
         public bool IsActive { get; set; } = true;
 
         // Navigation Properties
+        [ForeignKey("FacultyId")]
         public ApplicationUser Faculty { get; set; } = null!;
+
+        [ForeignKey("RoomId")]
         public Room Room { get; set; } = null!;
+
+        [ForeignKey("SubjectId")]
         public Subject Subject { get; set; } = null!;
+
+        [ForeignKey("ClassSectionId")]
         public ClassSection ClassSection { get; set; } = null!;
     }
 }

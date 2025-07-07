@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ClassSchedulingSys.Models
 {
@@ -8,15 +9,23 @@ namespace ClassSchedulingSys.Models
 
         [Required]
         public string SubjectCode { get; set; }
+
         [Required]
         public string SubjectTitle { get; set; }
+
         public int Units { get; set; }
+
+        [Required]
         public string SubjectType { get; set; }
+
+        [Required]
         public string YearLevel { get; set; }
 
-        public string? Color { get; set; }
+        public string? Color { get; set; } = "#999999";
 
         public int CollegeCourseId { get; set; }
+
+        [ForeignKey("CollegeCourseId")]
         public CollegeCourse CollegeCourse { get; set; }
 
         public bool IsActive { get; set; } = true;

@@ -1,4 +1,5 @@
-﻿using ClassSchedulingSys.DTO;
+﻿// ClassSchedulingSys/Controllers/AuthController
+using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Interfaces;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;

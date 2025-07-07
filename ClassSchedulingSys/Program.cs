@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace ClassSchedulingSys
 {
@@ -63,8 +64,15 @@ namespace ClassSchedulingSys
             // 5. Token service
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
             // 6. Controllers
-            builder.Services.AddControllers();
+            builder.Services
+                .AddControllers()
+                .AddJsonOptions(opts =>
+                {
+                    // Enable [De]serialization of enums from/to their string names
+                    opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                });
 
             // 7. Swagger/OpenAPI
             builder.Services.AddEndpointsApiExplorer();

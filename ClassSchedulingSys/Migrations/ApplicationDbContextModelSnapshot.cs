@@ -214,9 +214,6 @@ namespace ClassSchedulingSys.Migrations
                     b.Property<int>("ClassSectionId")
                         .HasColumnType("int");
 
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
-
                     b.HasKey("FacultyId", "SubjectId", "ClassSectionId");
 
                     b.HasIndex("ClassSectionId");

@@ -1,4 +1,5 @@
-﻿using ClassSchedulingSys.Data;
+﻿// ClassSchedulingSys/Controllers/FacultyController
+using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -144,6 +145,70 @@ namespace ClassSchedulingSys.Controllers
                 .ToListAsync();
 
             return Ok(assignments);
+        }
+
+        // NEW 1: Get assignments for a section
+        [HttpGet("classsection/{sectionId}/assignments")]
+        public async Task<IActionResult> GetAssignmentsByClassSection(int sectionId)
+        {
+            var result = await _context.FacultySubjectAssignments
+                .Where(fsa => fsa.ClassSectionId == sectionId)
+                .Include(fsa => fsa.Faculty)
+                .Include(fsa => fsa.Subject)
+                .Select(fsa => new
+                {
+                    FacultyId = fsa.FacultyId,
+                    FacultyName = fsa.Faculty.FullName,
+                    SubjectId = fsa.SubjectId,
+                    SubjectTitle = fsa.Subject.SubjectTitle,
+                    Units = fsa.Subject.Units
+                })
+                .ToListAsync();
+
+            return Ok(result);
+        }
+
+        // NEW 2: Get assignments not yet scheduled for faculty (for dragging)
+        [HttpGet("{facultyId}/unassigned-subjects")]
+        public async Task<IActionResult> GetUnscheduledAssignmentsForFaculty(string facultyId)
+        {
+            var assigned = await _context.FacultySubjectAssignments
+                .Where(fsa => fsa.FacultyId == facultyId)
+                .ToListAsync();
+
+            var scheduled = await _context.Schedules
+                .Where(s => s.FacultyId == facultyId)
+                .Select(s => new { s.SubjectId, s.ClassSectionId })
+                .ToListAsync();
+
+            var unscheduled = assigned
+                .Where(a => !scheduled.Any(s => s.SubjectId == a.SubjectId && s.ClassSectionId == a.ClassSectionId))
+                .Join(_context.Subjects, a => a.SubjectId, s => s.Id, (a, s) => new { a, s })
+                .Join(_context.ClassSections, temp => temp.a.ClassSectionId, cs => cs.Id, (temp, cs) => new
+                {
+                    SubjectId = temp.a.SubjectId,
+                    SubjectTitle = temp.s.SubjectTitle,
+                    Units = temp.s.Units,
+                    SubjectType = temp.s.SubjectType,
+                    ClassSectionId = temp.a.ClassSectionId,
+                    Section = cs.Section,
+                    YearLevel = temp.s.YearLevel
+                })
+                .ToList();
+
+            return Ok(unscheduled);
+        }
+
+        // NEW 3: Total units for tracking faculty load
+        [HttpGet("{facultyId}/total-units")]
+        public async Task<IActionResult> GetFacultyTotalUnits(string facultyId)
+        {
+            var total = await _context.FacultySubjectAssignments
+                .Where(fsa => fsa.FacultyId == facultyId)
+                .Join(_context.Subjects, a => a.SubjectId, s => s.Id, (a, s) => s.Units)
+                .SumAsync();
+
+            return Ok(new { FacultyId = facultyId, TotalUnits = total });
         }
 
     }

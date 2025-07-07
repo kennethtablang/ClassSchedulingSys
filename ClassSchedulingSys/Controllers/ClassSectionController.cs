@@ -1,4 +1,5 @@
-﻿using ClassSchedulingSys.Data;
+﻿// ClassSchedulingSys/Controllers/ClassSectionController
+using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;

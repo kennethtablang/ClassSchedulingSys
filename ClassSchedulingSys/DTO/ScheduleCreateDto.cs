@@ -5,6 +5,7 @@ namespace ClassSchedulingSys.DTO
 {
     public class ScheduleCreateDto
     {
+        [Required]
         public DayOfWeek Day { get; set; }
 
         public TimeSpan StartTime { get; set; }
@@ -70,5 +71,11 @@ namespace ClassSchedulingSys.DTO
         public string ClassSectionName { get; set; } = string.Empty;
 
         public bool IsActive { get; set; }
+    }
+
+    public class ConflictCheckResultDto
+    {
+        public bool HasConflict { get; set; }
+        public List<string> ConflictingResources { get; set; } = new();
     }
 }
