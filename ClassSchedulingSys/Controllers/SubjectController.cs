@@ -24,20 +24,20 @@ namespace ClassSchedulingSys.Controllers
 
         // GET: api/Subject
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<SubjectReadDTO>>> GetSubjects()
+        public async Task<ActionResult<IEnumerable<SubjectReadDto>>> GetSubjects()
         {
             var subjects = await _context.Subjects
                 .Where(s => s.IsActive)
                 .Include(s => s.CollegeCourse)
                 .ToListAsync();
 
-            var subjectDTOs = _mapper.Map<List<SubjectReadDTO>>(subjects);
+            var subjectDTOs = _mapper.Map<List<SubjectReadDto>>(subjects);
             return Ok(subjectDTOs);
         }
 
         // GET: api/Subject/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<SubjectReadDTO>> GetSubject(int id)
+        public async Task<ActionResult<SubjectReadDto>> GetSubject(int id)
         {
             var subject = await _context.Subjects
                 .Include(s => s.CollegeCourse)
@@ -46,13 +46,13 @@ namespace ClassSchedulingSys.Controllers
             if (subject == null)
                 return NotFound();
 
-            return _mapper.Map<SubjectReadDTO>(subject);
+            return _mapper.Map<SubjectReadDto>(subject);
         }
 
         // POST: api/Subject
         [HttpPost]
         [Authorize(Roles = "Dean,SuperAdmin")]
-        public async Task<ActionResult<SubjectReadDTO>> CreateSubject(SubjectCreateDTO dto)
+        public async Task<ActionResult<SubjectReadDto>> CreateSubject(SubjectCreateDto dto)
         {
             var subject = _mapper.Map<Subject>(dto);
             subject.IsActive = true;
@@ -60,14 +60,14 @@ namespace ClassSchedulingSys.Controllers
             _context.Subjects.Add(subject);
             await _context.SaveChangesAsync();
 
-            var subjectDTO = _mapper.Map<SubjectReadDTO>(subject);
+            var subjectDTO = _mapper.Map<SubjectReadDto>(subject);
             return CreatedAtAction(nameof(GetSubject), new { id = subject.Id }, subjectDTO);
         }
 
         // PUT: api/Subject/5
         [HttpPut("{id}")]
         [Authorize(Roles = "Dean,SuperAdmin")]
-        public async Task<IActionResult> UpdateSubject(int id, SubjectUpdateDTO dto)
+        public async Task<IActionResult> UpdateSubject(int id, SubjectUpdateDto dto)
         {
             var subject = await _context.Subjects.FindAsync(id);
             if (subject == null || !subject.IsActive)

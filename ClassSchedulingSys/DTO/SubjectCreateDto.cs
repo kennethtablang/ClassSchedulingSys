@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ClassSchedulingSys.DTO
 {
-    public class SubjectCreateDTO
+    public class SubjectCreateDto
     {
         [Required]
         public string SubjectCode { get; set; }
@@ -29,7 +29,7 @@ namespace ClassSchedulingSys.DTO
         //public int SemesterId { get; set; }
     }
 
-    public class SubjectUpdateDTO
+    public class SubjectUpdateDto
     {
         [Required]
         public string SubjectCode { get; set; }
@@ -55,7 +55,7 @@ namespace ClassSchedulingSys.DTO
         //public int SemesterId { get; set; }
     }
 
-    public class SubjectReadDTO
+    public class SubjectReadDto
     {
         public int Id { get; set; }
 
@@ -72,8 +72,6 @@ namespace ClassSchedulingSys.DTO
         public int CollegeCourseId { get; set; }
 
         public string CollegeCourseName { get; set; } // Optional for display
-
-
 
         public string? Color { get; set; }
 

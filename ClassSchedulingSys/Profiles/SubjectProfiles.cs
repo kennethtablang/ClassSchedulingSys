@@ -8,11 +8,11 @@ namespace ClassSchedulingSys.Profiles
     {
         public SubjectProfiles()
         {
-            CreateMap<Subject, SubjectReadDTO>()
+            CreateMap<Subject, SubjectReadDto>()
                 .ForMember(dest => dest.CollegeCourseName, opt => opt.MapFrom(src => src.CollegeCourse.Name));
 
-            CreateMap<SubjectCreateDTO, Subject>();
-            CreateMap<SubjectUpdateDTO, Subject>();
+            CreateMap<SubjectCreateDto, Subject>();
+            CreateMap<SubjectUpdateDto, Subject>();
         }
     }
 }

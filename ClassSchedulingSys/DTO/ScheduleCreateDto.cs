@@ -64,14 +64,18 @@ namespace ClassSchedulingSys.DTO
 
         public int SubjectId { get; set; }
         public string SubjectTitle { get; set; } = string.Empty;
+        public string SubjectCode { get; set; } = string.Empty; // ✅ Added
         public int SubjectUnits { get; set; }
         public string SubjectColor { get; set; } = "#999999";
 
         public int ClassSectionId { get; set; }
         public string ClassSectionName { get; set; } = string.Empty;
+        public string CourseCode { get; set; } = string.Empty;   // ✅ Added
+        public string YearLevel { get; set; } = string.Empty;     // ✅ Added
 
         public bool IsActive { get; set; }
     }
+
 
     public class ConflictCheckResultDto
     {
