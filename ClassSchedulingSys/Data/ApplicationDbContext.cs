@@ -59,6 +59,12 @@ namespace ClassSchedulingSys.Data
                 .WithMany(cs => cs.FacultySubjectAssignments)
                 .HasForeignKey(fsa => fsa.ClassSectionId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ClassSection>()
+                .HasOne(cs => cs.SchoolYear)
+                .WithMany()
+                .HasForeignKey(cs => cs.SchoolYearId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

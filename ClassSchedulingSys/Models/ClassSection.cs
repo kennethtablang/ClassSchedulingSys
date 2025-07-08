@@ -21,6 +21,10 @@ namespace ClassSchedulingSys.Models
         [ForeignKey("SemesterId")]
         public Semester Semester { get; set; } = null!;
 
+        public int SchoolYearId { get; set; }
+        [ForeignKey("SchoolYearId")]
+        public SchoolYear SchoolYear { get; set; }
+
         public ICollection<Schedule> Schedules { get; set; } = new List<Schedule>();
 
         public ICollection<FacultySubjectAssignment> FacultySubjectAssignments { get; set; } = new List<FacultySubjectAssignment>();

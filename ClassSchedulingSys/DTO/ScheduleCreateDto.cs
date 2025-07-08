@@ -73,6 +73,10 @@ namespace ClassSchedulingSys.DTO
         public string CourseCode { get; set; } = string.Empty;   // ✅ Added
         public string YearLevel { get; set; } = string.Empty;     // ✅ Added
 
+        public int SemesterId { get; set; }
+        public string SemesterName { get; set; } = string.Empty;
+        public string SchoolYearLabel { get; set; } = string.Empty;
+
         public bool IsActive { get; set; }
     }
 

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace ClassSchedulingSys.Migrations
 {
     /// <inheritdoc />
-    public partial class RevisionForModels : Migration
+    public partial class InitialUpdate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -307,7 +307,8 @@ namespace ClassSchedulingSys.Migrations
                     Section = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     YearLevel = table.Column<int>(type: "int", nullable: false),
                     CollegeCourseId = table.Column<int>(type: "int", nullable: false),
-                    SemesterId = table.Column<int>(type: "int", nullable: false)
+                    SemesterId = table.Column<int>(type: "int", nullable: false),
+                    SchoolYearId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -318,6 +319,12 @@ namespace ClassSchedulingSys.Migrations
                         principalTable: "CollegeCourses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ClassSections_SchoolYears_SchoolYearId",
+                        column: x => x.SchoolYearId,
+                        principalTable: "SchoolYears",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_ClassSections_Semesters_SemesterId",
                         column: x => x.SemesterId,
@@ -455,6 +462,11 @@ namespace ClassSchedulingSys.Migrations
                 name: "IX_ClassSections_CollegeCourseId",
                 table: "ClassSections",
                 column: "CollegeCourseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ClassSections_SchoolYearId",
+                table: "ClassSections",
+                column: "SchoolYearId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ClassSections_SemesterId",

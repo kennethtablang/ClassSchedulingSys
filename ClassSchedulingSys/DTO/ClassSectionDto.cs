@@ -1,5 +1,4 @@
-﻿// ClassSchedulingSys/DTO/ClassSectionDto.cs
-namespace ClassSchedulingSys.DTO
+﻿namespace ClassSchedulingSys.DTO
 {
     public class ClassSectionDto
     {
@@ -13,6 +12,8 @@ namespace ClassSchedulingSys.DTO
 
         public int SemesterId { get; set; }
         public string SemesterName { get; set; } = string.Empty;
+
+        public int SchoolYearId { get; set; }
         public string SchoolYearLabel { get; set; } = string.Empty;
     }
 
@@ -22,6 +23,7 @@ namespace ClassSchedulingSys.DTO
         public int YearLevel { get; set; }
         public int CollegeCourseId { get; set; }
         public int SemesterId { get; set; }
+        public int SchoolYearId { get; set; } // ✅ newly added
     }
 
     public class UpdateClassSectionDto
@@ -31,5 +33,6 @@ namespace ClassSchedulingSys.DTO
         public int YearLevel { get; set; }
         public int CollegeCourseId { get; set; }
         public int SemesterId { get; set; }
+        public int SchoolYearId { get; set; } // ✅ newly added
     }
 }

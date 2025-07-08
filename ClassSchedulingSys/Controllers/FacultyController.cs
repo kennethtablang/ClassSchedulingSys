@@ -1,5 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/FacultyController.cs
-using ClassSchedulingSys.Data;
+﻿using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -23,9 +22,6 @@ namespace ClassSchedulingSys.Controllers
             _userManager = userManager;
         }
 
-        /// <summary>
-        /// Get all users with Faculty role
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAllFaculty()
         {
@@ -44,45 +40,70 @@ namespace ClassSchedulingSys.Controllers
             return Ok(result);
         }
 
-        /// <summary>
-        /// Get all subject-section assignments for a faculty with total units
-        /// </summary>
         [HttpGet("{facultyId}/assigned-subjects")]
-        public async Task<IActionResult> GetAssignedSubjectsWithSections(string facultyId)
+        public async Task<IActionResult> GetAssignedSubjectsWithSections(
+            string facultyId,
+            [FromQuery] int? semesterId,
+            [FromQuery] string? schoolYear // format: "2025-2026"
+)
         {
-            var assignments = await _context.FacultySubjectAssignments
+            var query = _context.FacultySubjectAssignments
                 .Where(fsa => fsa.FacultyId == facultyId)
                 .Include(fsa => fsa.Subject)
                 .Include(fsa => fsa.ClassSection)
-                .ThenInclude(cs => cs.CollegeCourse)
-                .Select(fsa => new
-                {
-                    fsa.Subject.Id,
-                    fsa.Subject.SubjectCode,
-                    fsa.Subject.SubjectTitle,
-                    fsa.Subject.Units,
-                    fsa.Subject.SubjectType,
-                    fsa.Subject.YearLevel,
-                    fsa.ClassSectionId,
-                    SectionLabel = fsa.ClassSection.Section,
-                    CollegeCourseName = fsa.ClassSection.CollegeCourse.Name
-                })
-                .ToListAsync();
+                    .ThenInclude(cs => cs.CollegeCourse)
+                .Include(fsa => fsa.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                .Include(fsa => fsa.ClassSection)
+                    .ThenInclude(cs => cs.SchoolYear)
+                .AsQueryable();
 
-            var totalUnits = assignments.Sum(a => a.Units);
-            var totalSubjects = assignments.Select(a => a.Id).Distinct().Count();
+            if (semesterId.HasValue)
+            {
+                query = query.Where(fsa => fsa.ClassSection.SemesterId == semesterId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(schoolYear) && schoolYear.Contains('-'))
+            {
+                var parts = schoolYear.Split('-');
+                if (int.TryParse(parts[0], out int startYear) && int.TryParse(parts[1], out int endYear))
+                {
+                    query = query.Where(fsa =>
+                        fsa.ClassSection.SchoolYear.StartYear == startYear &&
+                        fsa.ClassSection.SchoolYear.EndYear == endYear);
+                }
+            }
+
+            var assignments = await query.ToListAsync();
+
+            var assignmentDtos = assignments.Select(a => new
+            {
+                a.Subject.Id,
+                a.Subject.SubjectCode,
+                a.Subject.SubjectTitle,
+                a.Subject.Units,
+                a.Subject.SubjectType,
+                a.Subject.YearLevel,
+                a.ClassSectionId,
+                SectionLabel = a.ClassSection.Section,
+                CollegeCourseName = a.ClassSection.CollegeCourse.Name,
+                SemesterId = a.ClassSection.SemesterId,
+                SemesterName = a.ClassSection.Semester.Name,
+                SchoolYearLabel = a.ClassSection.SchoolYear.StartYear + "-" + a.ClassSection.SchoolYear.EndYear
+            }).ToList();
+
+            var totalUnits = assignmentDtos.Sum(a => a.Units);
+            var totalSubjects = assignmentDtos.Select(a => a.Id).Distinct().Count();
 
             return Ok(new
             {
                 TotalUnits = totalUnits,
                 TotalSubjects = totalSubjects,
-                Subjects = assignments
+                Subjects = assignmentDtos
             });
         }
 
-        /// <summary>
-        /// Overwrite-style: Assign subjects to a faculty per section
-        /// </summary>
+
         [HttpPost("assign-subjects-per-section")]
         public async Task<IActionResult> AssignSubjectsPerSection([FromBody] AssignSubjectsToFacultyPerSectionDto dto)
         {
@@ -113,14 +134,14 @@ namespace ClassSchedulingSys.Controllers
             return Ok("Subjects assigned per section successfully.");
         }
 
-        /// <summary>
-        /// Unassign a specific subject-section pair from a faculty
-        /// </summary>
         [HttpDelete("{facultyId}/subject/{subjectId}/section/{sectionId}")]
         public async Task<IActionResult> UnassignSubjectFromSection(string facultyId, int subjectId, int sectionId)
         {
             var assignment = await _context.FacultySubjectAssignments
-                .FirstOrDefaultAsync(a => a.FacultyId == facultyId && a.SubjectId == subjectId && a.ClassSectionId == sectionId);
+                .FirstOrDefaultAsync(a =>
+                    a.FacultyId == facultyId &&
+                    a.SubjectId == subjectId &&
+                    a.ClassSectionId == sectionId);
 
             if (assignment == null)
                 return NotFound("Assignment not found.");
@@ -147,7 +168,6 @@ namespace ClassSchedulingSys.Controllers
             return Ok(assignments);
         }
 
-        // NEW 1: Get assignments for a section
         [HttpGet("classsection/{sectionId}/assignments")]
         public async Task<IActionResult> GetAssignmentsByClassSection(int sectionId)
         {
@@ -168,7 +188,6 @@ namespace ClassSchedulingSys.Controllers
             return Ok(result);
         }
 
-        // NEW 2: Get assignments not yet scheduled for faculty (for dragging)
         [HttpGet("{facultyId}/unassigned-subjects")]
         public async Task<IActionResult> GetUnscheduledAssignmentsForFaculty(string facultyId)
         {
@@ -199,7 +218,6 @@ namespace ClassSchedulingSys.Controllers
             return Ok(unscheduled);
         }
 
-        // NEW 3: Total units for tracking faculty load
         [HttpGet("{facultyId}/total-units")]
         public async Task<IActionResult> GetFacultyTotalUnits(string facultyId)
         {
@@ -210,6 +228,5 @@ namespace ClassSchedulingSys.Controllers
 
             return Ok(new { FacultyId = facultyId, TotalUnits = total });
         }
-
     }
 }

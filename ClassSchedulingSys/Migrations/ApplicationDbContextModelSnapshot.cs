@@ -140,6 +140,9 @@ namespace ClassSchedulingSys.Migrations
                     b.Property<int>("CollegeCourseId")
                         .HasColumnType("int");
 
+                    b.Property<int>("SchoolYearId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Section")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -153,6 +156,8 @@ namespace ClassSchedulingSys.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CollegeCourseId");
+
+                    b.HasIndex("SchoolYearId");
 
                     b.HasIndex("SemesterId");
 
@@ -554,6 +559,12 @@ namespace ClassSchedulingSys.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ClassSchedulingSys.Models.SchoolYear", "SchoolYear")
+                        .WithMany()
+                        .HasForeignKey("SchoolYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("ClassSchedulingSys.Models.Semester", "Semester")
                         .WithMany()
                         .HasForeignKey("SemesterId")
@@ -561,6 +572,8 @@ namespace ClassSchedulingSys.Migrations
                         .IsRequired();
 
                     b.Navigation("CollegeCourse");
+
+                    b.Navigation("SchoolYear");
 
                     b.Navigation("Semester");
                 });

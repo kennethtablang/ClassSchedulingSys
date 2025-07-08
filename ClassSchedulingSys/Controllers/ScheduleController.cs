@@ -1,5 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/ScheduleController
-using ClassSchedulingSys.Data;
+﻿using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Interfaces;
 using ClassSchedulingSys.Models;
@@ -34,6 +33,9 @@ namespace ClassSchedulingSys.Controllers
                 .Include(s => s.Subject)
                 .Include(s => s.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                        .ThenInclude(sem => sem.SchoolYear)
                 .ToListAsync();
 
             var dtos = entities.Select(MapToReadDto);
@@ -50,6 +52,9 @@ namespace ClassSchedulingSys.Controllers
                 .Include(s => s.Subject)
                 .Include(s => s.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                        .ThenInclude(sem => sem.SchoolYear)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (entity == null)
@@ -58,51 +63,10 @@ namespace ClassSchedulingSys.Controllers
             return Ok(MapToReadDto(entity));
         }
 
-        // In ScheduleController
-        [HttpGet("available-rooms")]
-        public async Task<ActionResult<IEnumerable<RoomReadDto>>> GetAvailableRooms(
-        [FromQuery] DayOfWeek day,
-        [FromQuery] TimeSpan startTime,
-        [FromQuery] TimeSpan endTime)
-        {
-            // Include Building when fetching rooms
-            var allRooms = await _context.Rooms
-                .Include(r => r.Building)
-                .ToListAsync();
-
-            // Get booked room IDs during the time slot
-            var booked = await _context.Schedules
-                .Where(s => s.Day == day &&
-                            (startTime < s.EndTime && endTime > s.StartTime))
-                .Select(s => s.RoomId)
-                .Distinct()
-                .ToListAsync();
-
-            // Filter free rooms and project to DTO
-            var freeRooms = allRooms
-                .Where(r => !booked.Contains(r.Id))
-                .Select(r => new RoomReadDto
-                {
-                    Id = r.Id,
-                    Name = r.Name,
-                    Capacity = r.Capacity,
-                    Type = r.Type,
-                    BuildingId = r.BuildingId,
-                    BuildingName = r.Building?.Name ?? "N/A" // Optional fallback
-                });
-
-            return Ok(freeRooms);
-        }
-
-
-
         // GET: api/schedule/faculty/{facultyId}
         [HttpGet("faculty/{facultyId}")]
         public async Task<ActionResult<IEnumerable<ScheduleReadDto>>> GetByFaculty(string facultyId)
         {
-            if (string.IsNullOrWhiteSpace(facultyId))
-                return BadRequest("Faculty ID is required.");
-
             var entities = await _context.Schedules
                 .Where(s => s.FacultyId == facultyId)
                 .Include(s => s.Faculty)
@@ -110,10 +74,12 @@ namespace ClassSchedulingSys.Controllers
                 .Include(s => s.Subject)
                 .Include(s => s.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                        .ThenInclude(sem => sem.SchoolYear)
                 .ToListAsync();
 
-            var dtos = entities.Select(MapToReadDto);
-            return Ok(dtos);
+            return Ok(entities.Select(MapToReadDto));
         }
 
         // GET: api/schedule/classsection/{sectionId}
@@ -127,10 +93,12 @@ namespace ClassSchedulingSys.Controllers
                 .Include(s => s.Subject)
                 .Include(s => s.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                        .ThenInclude(sem => sem.SchoolYear)
                 .ToListAsync();
 
-            var dtos = entities.Select(MapToReadDto);
-            return Ok(dtos);
+            return Ok(entities.Select(MapToReadDto));
         }
 
         // GET: api/schedule/room/{roomId}
@@ -144,23 +112,24 @@ namespace ClassSchedulingSys.Controllers
                 .Include(s => s.Subject)
                 .Include(s => s.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                        .ThenInclude(sem => sem.SchoolYear)
                 .ToListAsync();
 
-            var dtos = entities.Select(MapToReadDto);
-            return Ok(dtos);
+            return Ok(entities.Select(MapToReadDto));
         }
 
         // POST: api/schedule
         [HttpPost]
         public async Task<ActionResult<ScheduleReadDto>> CreateSchedule([FromBody] ScheduleCreateDto dto)
         {
-            // Validate assignment
-            var assigned = await _context.FacultySubjectAssignments.AnyAsync(a =>
+            var isAssigned = await _context.FacultySubjectAssignments.AnyAsync(a =>
                 a.FacultyId == dto.FacultyId &&
                 a.SubjectId == dto.SubjectId &&
                 a.ClassSectionId == dto.ClassSectionId);
 
-            if (!assigned)
+            if (!isAssigned)
                 return BadRequest("Faculty is not assigned to that subject and section.");
 
             var entity = new Schedule
@@ -178,24 +147,23 @@ namespace ClassSchedulingSys.Controllers
             _context.Schedules.Add(entity);
             await _context.SaveChangesAsync();
 
-            // Reload with navigation props
             var created = await _context.Schedules
                 .Include(s => s.Faculty)
                 .Include(s => s.Room)
                 .Include(s => s.Subject)
                 .Include(s => s.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                        .ThenInclude(sem => sem.SchoolYear)
                 .FirstOrDefaultAsync(s => s.Id == entity.Id);
 
-            return CreatedAtAction(
-                nameof(GetScheduleById),
-                new { id = created!.Id },
-                MapToReadDto(created));
+            return CreatedAtAction(nameof(GetScheduleById), new { id = created!.Id }, MapToReadDto(created));
         }
 
         // PUT: api/schedule/{id}
         [HttpPut("{id:int}")]
-        public async Task<ActionResult> UpdateSchedule(int id, [FromBody] ScheduleUpdateDto dto)
+        public async Task<IActionResult> UpdateSchedule(int id, [FromBody] ScheduleUpdateDto dto)
         {
             if (id != dto.Id)
                 return BadRequest("Mismatched schedule ID.");
@@ -204,16 +172,14 @@ namespace ClassSchedulingSys.Controllers
             if (entity == null)
                 return NotFound();
 
-            // Validate assignment
-            var assigned = await _context.FacultySubjectAssignments.AnyAsync(a =>
+            var isAssigned = await _context.FacultySubjectAssignments.AnyAsync(a =>
                 a.FacultyId == dto.FacultyId &&
                 a.SubjectId == dto.SubjectId &&
                 a.ClassSectionId == dto.ClassSectionId);
 
-            if (!assigned)
+            if (!isAssigned)
                 return BadRequest("Faculty is not assigned to that subject and section.");
 
-            // Apply updates
             entity.Day = dto.Day;
             entity.StartTime = dto.StartTime;
             entity.EndTime = dto.EndTime;
@@ -229,7 +195,7 @@ namespace ClassSchedulingSys.Controllers
 
         // DELETE: api/schedule/{id}
         [HttpDelete("{id:int}")]
-        public async Task<ActionResult> DeleteSchedule(int id)
+        public async Task<IActionResult> DeleteSchedule(int id)
         {
             var entity = await _context.Schedules.FindAsync(id);
             if (entity == null)
@@ -242,7 +208,9 @@ namespace ClassSchedulingSys.Controllers
 
         // POST: api/schedule/check-conflict
         [HttpPost("check-conflict")]
-        public async Task<ActionResult<ConflictCheckResultDto>> CheckConflict([FromBody] ScheduleCreateDto dto, [FromQuery] int? scheduleId = null)
+        public async Task<ActionResult<ConflictCheckResultDto>> CheckConflict(
+            [FromBody] ScheduleCreateDto dto,
+            [FromQuery] int? scheduleId = null)
         {
             var conflicts = await _context.Schedules
                 .Where(s =>
@@ -271,7 +239,37 @@ namespace ClassSchedulingSys.Controllers
             return Ok(result);
         }
 
-        // GET: api/schedule/print
+        // GET: api/schedule/available-rooms
+        [HttpGet("available-rooms")]
+        public async Task<ActionResult<IEnumerable<RoomReadDto>>> GetAvailableRooms(
+            [FromQuery] DayOfWeek day,
+            [FromQuery] TimeSpan startTime,
+            [FromQuery] TimeSpan endTime)
+        {
+            var allRooms = await _context.Rooms.Include(r => r.Building).ToListAsync();
+
+            var bookedRoomIds = await _context.Schedules
+                .Where(s => s.Day == day &&
+                            (startTime < s.EndTime && endTime > s.StartTime))
+                .Select(s => s.RoomId)
+                .Distinct()
+                .ToListAsync();
+
+            var availableRooms = allRooms
+                .Where(r => !bookedRoomIds.Contains(r.Id))
+                .Select(r => new RoomReadDto
+                {
+                    Id = r.Id,
+                    Name = r.Name,
+                    Capacity = r.Capacity,
+                    Type = r.Type,
+                    BuildingId = r.BuildingId,
+                    BuildingName = r.Building?.Name ?? "N/A"
+                });
+
+            return Ok(availableRooms);
+        }
+
         // GET: api/schedule/print?pov=Faculty&id=abc123
         [HttpGet("print")]
         public async Task<IActionResult> PrintSchedule([FromQuery] string pov, [FromQuery] string id)
@@ -279,88 +277,33 @@ namespace ClassSchedulingSys.Controllers
             if (string.IsNullOrWhiteSpace(pov) || string.IsNullOrWhiteSpace(id))
                 return BadRequest("POV and ID are required.");
 
-            var schedules = pov.ToLower() switch
+            List<Schedule> schedules = pov.ToLower() switch
             {
                 "faculty" => await _context.Schedules
                     .Where(s => s.FacultyId == id)
-                    .Include(s => s.Faculty)
-                    .Include(s => s.Room)
-                    .Include(s => s.Subject)
-                    .Include(s => s.ClassSection)
-                        .ThenInclude(cs => cs.CollegeCourse)
+                    .IncludeAll()
                     .ToListAsync(),
 
-                "class section" or "classsection" => await _context.Schedules
+                "classsection" => await _context.Schedules
                     .Where(s => s.ClassSectionId == int.Parse(id))
-                    .Include(s => s.Faculty)
-                    .Include(s => s.Room)
-                    .Include(s => s.Subject)
-                    .Include(s => s.ClassSection)
-                         .ThenInclude(cs => cs.CollegeCourse)
+                    .IncludeAll()
                     .ToListAsync(),
 
                 "room" => await _context.Schedules
                     .Where(s => s.RoomId == int.Parse(id))
-                    .Include(s => s.Faculty)
-                    .Include(s => s.Room)
-                    .Include(s => s.Subject)
-                    .Include(s => s.ClassSection)
-                        .ThenInclude(cs => cs.CollegeCourse)
+                    .IncludeAll()
                     .ToListAsync(),
 
-                _ => null
+                _ => null!
             };
 
             if (schedules == null)
                 return BadRequest("Invalid POV.");
-
             if (!schedules.Any())
                 return NotFound("No schedules found.");
 
-            var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, pov, id); // We'll define this next
-
+            var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, pov, id);
             return File(pdfBytes, "application/pdf", $"Schedule_{pov}_{id}.pdf");
-        }
-
-
-        private class TimeSlot
-        {
-            public DayOfWeek Day { get; set; }
-            public TimeSpan StartTime { get; set; }
-            public TimeSpan EndTime { get; set; }
-        }
-
-        private TimeSlot? FindAvailableTimeSlot(List<Schedule> existing, FacultySubjectAssignment assignment)
-        {
-            var duration = TimeSpan.FromHours(assignment.Subject.Units == 0 ? 1 : assignment.Subject.Units); // fallback: 1 hour
-            var days = Enum.GetValues<DayOfWeek>();
-
-            foreach (var day in days)
-            {
-                for (var hour = 8; hour <= 17 - duration.TotalHours; hour++) // limit to 8AM–5PM
-                {
-                    var start = TimeSpan.FromHours(hour);
-                    var end = start + duration;
-
-                    var conflict = existing.Any(s =>
-                        s.Day == day &&
-                        ((start >= s.StartTime && start < s.EndTime) ||
-                         (end > s.StartTime && end <= s.EndTime)) &&
-                        (s.FacultyId == assignment.FacultyId ||
-                         s.ClassSectionId == assignment.ClassSectionId));
-
-                    if (!conflict)
-                    {
-                        return new TimeSlot
-                        {
-                            Day = day,
-                            StartTime = start,
-                            EndTime = end
-                        };
-                    }
-                }
-            }
-            return null;
         }
 
         private static ScheduleReadDto MapToReadDto(Schedule s) => new()
@@ -385,10 +328,29 @@ namespace ClassSchedulingSys.Controllers
 
             ClassSectionId = s.ClassSectionId,
             ClassSectionName = s.ClassSection.Section,
-            CourseCode = s.ClassSection.CollegeCourse.Code, // ✅ NEW
-            YearLevel = s.ClassSection.YearLevel.ToString(),                 // ✅ NEW
+            CourseCode = s.ClassSection.CollegeCourse.Code,
+            YearLevel = s.ClassSection.YearLevel.ToString(),
+
+            SemesterName = s.ClassSection.Semester.Name,
+            SchoolYearLabel = $"{s.ClassSection.Semester.SchoolYear.StartYear}-{s.ClassSection.Semester.SchoolYear.EndYear}",
 
             IsActive = s.IsActive
         };
+    }
+
+    internal static class ScheduleIncludesExtension
+    {
+        public static IQueryable<Schedule> IncludeAll(this IQueryable<Schedule> query)
+        {
+            return query
+                .Include(s => s.Faculty)
+                .Include(s => s.Room)
+                .Include(s => s.Subject)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.CollegeCourse)
+                .Include(s => s.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                        .ThenInclude(sem => sem.SchoolYear);
+        }
     }
 }

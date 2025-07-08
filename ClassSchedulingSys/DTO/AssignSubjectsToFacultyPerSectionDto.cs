@@ -40,6 +40,10 @@ namespace ClassSchedulingSys.DTO
         public int ClassSectionId { get; set; }
         public string SectionLabel { get; set; } = string.Empty;
         public string CollegeCourse { get; set; } = string.Empty;
+
+        public int SemesterId { get; set; }
+        public string SemesterName { get; set; } = string.Empty;
+        public string SchoolYearLabel { get; set; } = string.Empty;
     }
 
     public class AssignedSubjectsDto

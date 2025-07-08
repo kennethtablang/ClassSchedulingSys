@@ -1,5 +1,4 @@
-﻿// ClassSchedulingSys/Controllers/ClassSectionController.cs
-using ClassSchedulingSys.Data;
+﻿using ClassSchedulingSys.Data;
 using ClassSchedulingSys.DTO;
 using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +10,7 @@ namespace ClassSchedulingSys.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "Dean,SuperAdmin")]
-    public class ClassSectionController : Controller
+    public class ClassSectionController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
 
@@ -27,7 +26,7 @@ namespace ClassSchedulingSys.Controllers
             var sections = await _context.ClassSections
                 .Include(cs => cs.CollegeCourse)
                 .Include(cs => cs.Semester)
-                    .ThenInclude(s => s.SchoolYear)
+                .Include(cs => cs.SchoolYear) // ✅ Direct include
                 .Select(cs => new ClassSectionDto
                 {
                     Id = cs.Id,
@@ -38,8 +37,8 @@ namespace ClassSchedulingSys.Controllers
                     CollegeCourseName = cs.CollegeCourse.Name,
                     SemesterId = cs.SemesterId,
                     SemesterName = cs.Semester.Name,
-                    SchoolYearLabel = cs.Semester.SchoolYear != null
-                        ? $"{cs.Semester.SchoolYear.StartYear}-{cs.Semester.SchoolYear.EndYear}"
+                    SchoolYearLabel = cs.SchoolYear != null
+                        ? $"{cs.SchoolYear.StartYear}-{cs.SchoolYear.EndYear}"
                         : string.Empty
                 })
                 .ToListAsync();
@@ -54,7 +53,7 @@ namespace ClassSchedulingSys.Controllers
             var cs = await _context.ClassSections
                 .Include(cs => cs.CollegeCourse)
                 .Include(cs => cs.Semester)
-                    .ThenInclude(s => s.SchoolYear)
+                .Include(cs => cs.SchoolYear)
                 .FirstOrDefaultAsync(cs => cs.Id == id);
 
             if (cs == null) return NotFound();
@@ -69,8 +68,8 @@ namespace ClassSchedulingSys.Controllers
                 CollegeCourseName = cs.CollegeCourse.Name,
                 SemesterId = cs.SemesterId,
                 SemesterName = cs.Semester.Name,
-                SchoolYearLabel = cs.Semester.SchoolYear != null
-                    ? $"{cs.Semester.SchoolYear.StartYear}-{cs.Semester.SchoolYear.EndYear}"
+                SchoolYearLabel = cs.SchoolYear != null
+                    ? $"{cs.SchoolYear.StartYear}-{cs.SchoolYear.EndYear}"
                     : string.Empty
             };
 
@@ -86,7 +85,8 @@ namespace ClassSchedulingSys.Controllers
                 Section = dto.Section,
                 YearLevel = dto.YearLevel,
                 CollegeCourseId = dto.CollegeCourseId,
-                SemesterId = dto.SemesterId
+                SemesterId = dto.SemesterId,
+                SchoolYearId = dto.SchoolYearId // ✅ New
             };
 
             _context.ClassSections.Add(section);
@@ -108,6 +108,7 @@ namespace ClassSchedulingSys.Controllers
             section.YearLevel = dto.YearLevel;
             section.CollegeCourseId = dto.CollegeCourseId;
             section.SemesterId = dto.SemesterId;
+            section.SchoolYearId = dto.SchoolYearId; // ✅ Updated
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Class section updated successfully." });
@@ -148,7 +149,5 @@ namespace ClassSchedulingSys.Controllers
 
             return Ok(assignments);
         }
-
-
     }
 }
