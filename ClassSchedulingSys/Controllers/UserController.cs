@@ -130,6 +130,32 @@ namespace ClassSchedulingSys.Controllers
         }
 
         /// <summary>
+        /// Admin resets a user's password
+        /// </summary>
+        [HttpPut("users/{id}/reset-password")]
+        public async Task<IActionResult> ResetPassword(string id, [FromBody] AdminResetPasswordDto dto)
+        {
+            if (dto.UserId != id)
+                return BadRequest("User ID mismatch.");
+
+            if (dto.NewPassword != dto.ConfirmPassword)
+                return BadRequest("Passwords do not match.");
+
+            var user = await _userMgr.FindByIdAsync(id);
+            if (user == null)
+                return NotFound("User not found.");
+
+            var token = await _userMgr.GeneratePasswordResetTokenAsync(user);
+            var result = await _userMgr.ResetPasswordAsync(user, token, dto.NewPassword);
+
+            if (!result.Succeeded)
+                return BadRequest(result.Errors);
+
+            return Ok("Password reset successfully.");
+        }
+
+
+        /// <summary>
         /// Toggle a user's active/deactivated status
         /// </summary>
         [HttpPatch("users/{id}/toggle-status")]
@@ -153,7 +179,37 @@ namespace ClassSchedulingSys.Controllers
             });
         }
 
+        /// <summary>
+        /// Get all deactivated users (archived)
+        /// </summary>
+        [HttpGet("users/archived")]
+        public async Task<IActionResult> GetArchivedUsers()
+        {
+            var users = await _userMgr.Users
+                .Where(u => !u.IsActive)
+                .ToListAsync();
 
+            var result = new List<object>();
 
+            foreach (var user in users)
+            {
+                var roles = await _userMgr.GetRolesAsync(user);
+                result.Add(new
+                {
+                    user.Id,
+                    user.Email,
+                    user.UserName,
+                    user.FirstName,
+                    user.MiddleName,
+                    user.LastName,
+                    user.PhoneNumber,
+                    user.DepartmentId,
+                    IsActive = user.IsActive,
+                    Roles = roles
+                });
+            }
+
+            return Ok(result);
+        }
     }
 }

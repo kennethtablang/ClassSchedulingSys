@@ -77,5 +77,4 @@ namespace ClassSchedulingSys.DTO
 
         public bool IsActive { get; set; }
     }
-
 }

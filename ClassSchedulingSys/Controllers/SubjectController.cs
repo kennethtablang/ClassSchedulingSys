@@ -93,5 +93,38 @@ namespace ClassSchedulingSys.Controllers
 
             return NoContent();
         }
+
+        // 🔹 GET: api/Subject/archived
+        // Returns all soft-deleted subjects
+        [HttpGet("archived")]
+        [Authorize(Roles = "Dean,SuperAdmin")]
+        public async Task<ActionResult<IEnumerable<SubjectReadDto>>> GetArchivedSubjects()
+        {
+            var archived = await _context.Subjects
+                .Where(s => !s.IsActive)
+                .Include(s => s.CollegeCourse)
+                .ToListAsync();
+
+            var dtos = _mapper.Map<List<SubjectReadDto>>(archived);
+            return Ok(dtos);
+        }
+
+        // 🔹 PUT: api/Subject/{id}/restore
+        // Reactivates a soft-deleted subject
+        [HttpPut("{id}/restore")]
+        [Authorize(Roles = "Dean,SuperAdmin")]
+        public async Task<IActionResult> RestoreSubject(int id)
+        {
+            var subject = await _context.Subjects.FindAsync(id);
+            if (subject == null)
+                return NotFound();
+
+            if (subject.IsActive)
+                return BadRequest("Subject is already active.");
+
+            subject.IsActive = true;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }

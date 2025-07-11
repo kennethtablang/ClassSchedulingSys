@@ -153,20 +153,52 @@ namespace ClassSchedulingSys.Controllers
         }
 
         [HttpGet("assigned-subjects")]
-        public async Task<IActionResult> GetAllAssignedSubjects()
+        public async Task<IActionResult> GetAllAssignedSubjects(
+    [FromQuery] int? semesterId,
+    [FromQuery] string? schoolYear)
         {
-            var assignments = await _context.FacultySubjectAssignments
+            var query = _context.FacultySubjectAssignments
                 .Include(fss => fss.Faculty)
-                .Select(fss => new AssignedSubjectInfoDto
+                .Include(fss => fss.Subject)
+                .Include(fss => fss.ClassSection)
+                    .ThenInclude(cs => cs.Semester)
+                .Include(fss => fss.ClassSection)
+                    .ThenInclude(cs => cs.SchoolYear)
+                .AsQueryable();
+
+            if (semesterId.HasValue)
+            {
+                query = query.Where(fsa => fsa.ClassSection.SemesterId == semesterId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(schoolYear) && schoolYear.Contains("-"))
+            {
+                var parts = schoolYear.Split("-");
+                if (int.TryParse(parts[0], out int startYear) && int.TryParse(parts[1], out int endYear))
+                {
+                    query = query.Where(fsa =>
+                        fsa.ClassSection.SchoolYear.StartYear == startYear &&
+                        fsa.ClassSection.SchoolYear.EndYear == endYear);
+                }
+            }
+
+            var assignments = await query
+                .Select(fss => new
                 {
                     SubjectId = fss.SubjectId,
+                    SubjectTitle = fss.Subject.SubjectTitle,
                     ClassSectionId = fss.ClassSectionId,
-                    FacultyName = fss.Faculty.FullName
+                    ClassSectionName = fss.ClassSection.Section,
+                    FacultyName = fss.Faculty.FullName,
+                    SemesterId = fss.ClassSection.SemesterId,
+                    SemesterName = fss.ClassSection.Semester.Name,
+                    SchoolYearLabel = fss.ClassSection.SchoolYear.StartYear + "-" + fss.ClassSection.SchoolYear.EndYear
                 })
                 .ToListAsync();
 
             return Ok(assignments);
         }
+
 
         [HttpGet("classsection/{sectionId}/assignments")]
         public async Task<IActionResult> GetAssignmentsByClassSection(int sectionId)
