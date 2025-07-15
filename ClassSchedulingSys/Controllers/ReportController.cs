@@ -12,7 +12,7 @@ namespace ClassSchedulingSys.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Dean,SuperAdmin")]
+    [Authorize(Roles = "Faculty,Dean,SuperAdmin")]
     public class ReportController : Controller
     {
         private readonly ApplicationDbContext _context;

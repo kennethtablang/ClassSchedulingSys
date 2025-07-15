@@ -11,7 +11,7 @@ namespace ClassSchedulingSys.Controllers
     //This is the Admin Controller to Modify the User Controller
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize(Roles = "Faculty,Dean,SuperAdmin")]
     public class UserController : Controller
     {
 

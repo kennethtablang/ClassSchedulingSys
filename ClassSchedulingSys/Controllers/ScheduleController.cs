@@ -11,7 +11,7 @@ namespace ClassSchedulingSys.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Dean,SuperAdmin")]
+    [Authorize(Roles = "Faculty,Dean,SuperAdmin")]
     public class ScheduleController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -209,35 +209,43 @@ namespace ClassSchedulingSys.Controllers
         // POST: api/schedule/check-conflict
         [HttpPost("check-conflict")]
         public async Task<ActionResult<ConflictCheckResultDto>> CheckConflict(
-            [FromBody] ScheduleCreateDto dto,
-            [FromQuery] int? scheduleId = null)
+            [FromBody] ScheduleConflictCheckDto dto)
         {
             var conflicts = await _context.Schedules
                 .Where(s =>
+                    s.IsActive &&
                     s.Day == dto.Day &&
-                    ((dto.StartTime >= s.StartTime && dto.StartTime < s.EndTime) ||
-                     (dto.EndTime > s.StartTime && dto.EndTime <= s.EndTime)) &&
-                    (s.FacultyId == dto.FacultyId ||
-                     s.RoomId == dto.RoomId ||
-                     s.ClassSectionId == dto.ClassSectionId) &&
-                    (!scheduleId.HasValue || s.Id != scheduleId.Value))
+                    (
+                        dto.StartTime < s.EndTime && dto.EndTime > s.StartTime
+                    ) &&
+                    (
+                        s.FacultyId == dto.FacultyId ||
+                        s.RoomId == dto.RoomId ||
+                        s.ClassSectionId == dto.ClassSectionId
+                    ) &&
+                    (!dto.Id.HasValue || s.Id != dto.Id.Value) // Ignore the current schedule being edited
+                )
                 .ToListAsync();
 
             var result = new ConflictCheckResultDto
             {
                 HasConflict = conflicts.Any(),
                 ConflictingResources = conflicts
-                    .Select(c => c.FacultyId == dto.FacultyId
-                        ? "Faculty"
-                        : c.RoomId == dto.RoomId
-                            ? "Room"
-                            : "ClassSection")
+                    .SelectMany(c =>
+                        new[]
+                        {
+                    c.FacultyId == dto.FacultyId ? "Faculty" : null,
+                    c.RoomId == dto.RoomId ? "Room" : null,
+                    c.ClassSectionId == dto.ClassSectionId ? "Section" : null
+                        })
+                    .Where(x => x != null)
                     .Distinct()
-                    .ToList()
+                    .ToList()!
             };
 
             return Ok(result);
         }
+
 
         // GET: api/schedule/available-rooms
         [HttpGet("available-rooms")]
@@ -272,7 +280,10 @@ namespace ClassSchedulingSys.Controllers
 
         // GET: api/schedule/print?pov=Faculty&id=abc123
         [HttpGet("print")]
-        public async Task<IActionResult> PrintSchedule([FromQuery] string pov, [FromQuery] string id)
+        public async Task<IActionResult> PrintSchedule(
+            [FromQuery] string pov,
+            [FromQuery] string id,
+            [FromQuery] int? semesterId)
         {
             if (string.IsNullOrWhiteSpace(pov) || string.IsNullOrWhiteSpace(id))
                 return BadRequest("POV and ID are required.");
@@ -280,22 +291,28 @@ namespace ClassSchedulingSys.Controllers
             List<Schedule> schedules = pov.ToLower() switch
             {
                 "faculty" => await _context.Schedules
-                    .Where(s => s.FacultyId == id)
+                    .Where(s => s.FacultyId == id && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId))
                     .IncludeAll()
                     .ToListAsync(),
 
                 "classsection" => await _context.Schedules
-                    .Where(s => s.ClassSectionId == int.Parse(id))
+                    .Where(s => s.ClassSectionId == int.Parse(id) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId))
                     .IncludeAll()
                     .ToListAsync(),
 
                 "room" => await _context.Schedules
-                    .Where(s => s.RoomId == int.Parse(id))
+                    .Where(s => s.RoomId == int.Parse(id) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId))
+                    .IncludeAll()
+                    .ToListAsync(),
+
+                "all" => await _context.Schedules
+                    .Where(s => !semesterId.HasValue || s.ClassSection.SemesterId == semesterId)
                     .IncludeAll()
                     .ToListAsync(),
 
                 _ => null!
             };
+
 
             if (schedules == null)
                 return BadRequest("Invalid POV.");
@@ -303,7 +320,7 @@ namespace ClassSchedulingSys.Controllers
                 return NotFound("No schedules found.");
 
             var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, pov, id);
-            return File(pdfBytes, "application/pdf", $"Schedule_{pov}_{id}.pdf");
+            return File(pdfBytes, "application/pdf", $"Schedule_{pov}_{id}_Sem{semesterId}.pdf");
         }
 
         private static ScheduleReadDto MapToReadDto(Schedule s) => new()
@@ -338,7 +355,7 @@ namespace ClassSchedulingSys.Controllers
         };
     }
 
-    internal static class ScheduleIncludesExtension
+    public static class ScheduleIncludesExtension
     {
         public static IQueryable<Schedule> IncludeAll(this IQueryable<Schedule> query)
         {

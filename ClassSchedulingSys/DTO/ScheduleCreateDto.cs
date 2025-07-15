@@ -86,4 +86,23 @@ namespace ClassSchedulingSys.DTO
         public bool HasConflict { get; set; }
         public List<string> ConflictingResources { get; set; } = new();
     }
+
+    public class ScheduleConflictCheckDto
+    {
+        public int? Id { get; set; } // Optional: if editing
+
+        public DayOfWeek Day { get; set; }
+
+        public TimeSpan StartTime { get; set; }
+
+        public TimeSpan EndTime { get; set; }
+
+        public string FacultyId { get; set; } = string.Empty;
+
+        public int RoomId { get; set; }
+
+        public int SubjectId { get; set; }
+
+        public int ClassSectionId { get; set; }
+    }
 }

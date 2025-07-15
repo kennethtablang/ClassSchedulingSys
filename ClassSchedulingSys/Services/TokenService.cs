@@ -23,7 +23,10 @@ namespace ClassSchedulingSys.Services
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email!)
+                new Claim(JwtRegisteredClaimNames.Email, user.Email!),
+                new Claim("id", user.Id),                        // ✅ Add this line
+                new Claim("email", user.Email!),                 // ✅ Optional, for clarity
+                new Claim("role", roles.FirstOrDefault() ?? "")  // ✅ Role claim as plain "role"
             };
 
             // add role claims

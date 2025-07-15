@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ClassSchedulingSys.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250708141140_InitialUpdate")]
-    partial class InitialUpdate
+    [Migration("20250712011851_SystemTest")]
+    partial class SystemTest
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

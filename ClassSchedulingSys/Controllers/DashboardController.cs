@@ -8,7 +8,6 @@ namespace ClassSchedulingSys.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class DashboardController : Controller
     {
         private readonly ApplicationDbContext _context;
