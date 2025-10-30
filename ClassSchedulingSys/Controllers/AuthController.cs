@@ -43,7 +43,9 @@ namespace ClassSchedulingSys.Controllers
                 Email = dto.Email,
                 FirstName = dto.FirstName,
                 MiddleName = dto.MiddleName,
-                LastName = dto.LastName
+                LastName = dto.LastName,
+
+                EmployeeID = string.IsNullOrWhiteSpace(dto.EmployeeID) ? null : dto.EmployeeID
             };
 
             var result = await _userMgr.CreateAsync(user, dto.Password);
@@ -82,6 +84,7 @@ namespace ClassSchedulingSys.Controllers
                 user.MiddleName,
                 user.LastName,
                 FullName = user.FullName,
+                EmployeeID = user.EmployeeID,
                 Roles = roles
             });
         }
@@ -110,7 +113,8 @@ namespace ClassSchedulingSys.Controllers
                 user.LastName,
                 FullName = user.FullName,
                 user.PhoneNumber,
-                user.DepartmentId
+                user.DepartmentId,
+                EmployeeID = user.EmployeeID
             });
         }
 
@@ -136,6 +140,8 @@ namespace ClassSchedulingSys.Controllers
             user.MiddleName = dto.MiddleName;
             user.LastName = dto.LastName;
             user.PhoneNumber = dto.PhoneNumber;
+
+            //user.EmployeeID = dto.EmployeeID ?? user.EmployeeID;
 
             var result = await _userMgr.UpdateAsync(user);
             if (!result.Succeeded)

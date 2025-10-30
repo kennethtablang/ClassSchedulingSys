@@ -34,7 +34,8 @@ namespace ClassSchedulingSys.Controllers
                 Email = f.Email,
                 PhoneNumber = f.PhoneNumber,
                 DepartmentId = f.DepartmentId,
-                IsActive = f.IsActive
+                IsActive = f.IsActive,
+                EmployeeID = f.EmployeeID
             });
 
             return Ok(result);

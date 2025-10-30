@@ -65,6 +65,11 @@ namespace ClassSchedulingSys.Data
                 .WithMany()
                 .HasForeignKey(cs => cs.SchoolYearId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ApplicationUser>()
+                .HasIndex(u => u.EmployeeID)
+                .IsUnique()
+                .HasFilter("[EmployeeID] IS NOT NULL");
         }
     }
 }

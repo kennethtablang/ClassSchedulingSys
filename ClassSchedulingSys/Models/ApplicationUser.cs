@@ -19,6 +19,8 @@ namespace ClassSchedulingSys.Models
             => string.Join(" ", new[] { FirstName, MiddleName, LastName }
                                 .Where(s => !string.IsNullOrWhiteSpace(s)));
 
+        public string? EmployeeID { get; set; }
+
         // ← Department linkage
         public int? DepartmentId { get; set; }
         //[ForeignKey("DepartmentId")]
