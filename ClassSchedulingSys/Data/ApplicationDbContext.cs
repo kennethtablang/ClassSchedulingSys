@@ -70,6 +70,14 @@ namespace ClassSchedulingSys.Data
                 .HasIndex(u => u.EmployeeID)
                 .IsUnique()
                 .HasFilter("[EmployeeID] IS NOT NULL");
+
+            modelBuilder.Entity<Subject>()
+                .HasIndex(s => s.SubjectCode)
+                .IsUnique();
+
+            modelBuilder.Entity<CollegeCourse>()
+                .HasIndex(c => c.Code)
+                .IsUnique();
         }
     }
 }

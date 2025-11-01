@@ -54,7 +54,20 @@ namespace ClassSchedulingSys.Controllers
         [HttpPost]
         public async Task<ActionResult<SubjectReadDto>> CreateSubject(SubjectCreateDto dto)
         {
+            // Basic normalization
+            var code = dto.SubjectCode?.Trim();
+            if (string.IsNullOrWhiteSpace(code))
+                return BadRequest("SubjectCode is required.");
+
+            // Case-insensitive existence check
+            var exists = await _context.Subjects
+                .AnyAsync(s => s.SubjectCode != null && s.SubjectCode.ToUpper() == code.ToUpper());
+
+            if (exists)
+                return BadRequest("Subject code already taken.");
+
             var subject = _mapper.Map<Subject>(dto);
+            subject.SubjectCode = code; // ensure stored value is trimmed
             subject.IsActive = true;
 
             _context.Subjects.Add(subject);
@@ -64,7 +77,6 @@ namespace ClassSchedulingSys.Controllers
             return CreatedAtAction(nameof(GetSubject), new { id = subject.Id }, subjectDTO);
         }
 
-        // PUT: api/Subject/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateSubject(int id, SubjectUpdateDto dto)
         {
@@ -72,9 +84,25 @@ namespace ClassSchedulingSys.Controllers
             if (subject == null || !subject.IsActive)
                 return NotFound();
 
-            _mapper.Map(dto, subject);
-            await _context.SaveChangesAsync();
+            // Normalize incoming code
+            var newCode = dto.SubjectCode?.Trim();
+            if (string.IsNullOrWhiteSpace(newCode))
+                return BadRequest("SubjectCode is required.");
 
+            // Ensure no other subject (different id) already uses that code (case-insensitive)
+            var codeTaken = await _context.Subjects
+                .AnyAsync(s => s.Id != id && s.SubjectCode != null && s.SubjectCode.ToUpper() == newCode.ToUpper());
+
+            if (codeTaken)
+                return BadRequest("Subject code already taken.");
+
+            // Map properties (AutoMapper or manual)
+            _mapper.Map(dto, subject);
+
+            // Ensure trimmed code is saved
+            subject.SubjectCode = newCode;
+
+            await _context.SaveChangesAsync();
             return NoContent();
         }
 
@@ -92,7 +120,7 @@ namespace ClassSchedulingSys.Controllers
             return NoContent();
         }
 
-        // 🔹 GET: api/Subject/archived
+        // GET: api/Subject/archived
         // Returns all soft-deleted subjects
         [HttpGet("archived")]
         public async Task<ActionResult<IEnumerable<SubjectReadDto>>> GetArchivedSubjects()
@@ -106,7 +134,7 @@ namespace ClassSchedulingSys.Controllers
             return Ok(dtos);
         }
 
-        // 🔹 PUT: api/Subject/{id}/restore
+        // PUT: api/Subject/{id}/restore
         // Reactivates a soft-deleted subject
         [HttpPut("{id}/restore")]
         public async Task<IActionResult> RestoreSubject(int id)

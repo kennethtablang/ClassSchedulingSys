@@ -4,6 +4,7 @@ using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace ClassSchedulingSys.Controllers
@@ -70,6 +71,18 @@ namespace ClassSchedulingSys.Controllers
             if (existing != null)
                 return BadRequest("Email already exists.");
 
+            var empId = string.IsNullOrWhiteSpace(dto.EmployeeID) ? null : dto.EmployeeID.Trim();
+
+            // Pre-check EmployeeID
+            if (!string.IsNullOrWhiteSpace(empId))
+            {
+                var empExists = await _userMgr.Users
+                    .AnyAsync(u => u.EmployeeID != null && u.EmployeeID.ToUpper() == empId.ToUpper());
+
+                if (empExists)
+                    return BadRequest("EmployeeID already taken.");
+            }
+
             var user = new ApplicationUser
             {
                 Email = dto.Email,
@@ -77,10 +90,24 @@ namespace ClassSchedulingSys.Controllers
                 FirstName = dto.FirstName,
                 MiddleName = dto.MiddleName,
                 LastName = dto.LastName,
-                EmployeeID = string.IsNullOrWhiteSpace(dto.EmployeeID) ? null : dto.EmployeeID
+                EmployeeID = empId
             };
 
-            var result = await _userMgr.CreateAsync(user, dto.Password);
+            IdentityResult result;
+            try
+            {
+                result = await _userMgr.CreateAsync(user, dto.Password); // note: _user_mgr should be _userMgr in your actual file
+            }
+            catch (DbUpdateException dbEx)
+            {
+                if (dbEx.InnerException is SqlException sqlEx &&
+                    (sqlEx.Number == 2601 || sqlEx.Number == 2627))
+                {
+                    return BadRequest("EmployeeID already taken.");
+                }
+                throw;
+            }
+
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
@@ -98,19 +125,49 @@ namespace ClassSchedulingSys.Controllers
             var user = await _userMgr.FindByIdAsync(id);
             if (user == null) return NotFound("User not found.");
 
+            // Normalize incoming EmployeeID (optional)
+            var newEmpId = string.IsNullOrWhiteSpace(dto.EmployeeID) ? null : dto.EmployeeID.Trim();
+
+            // If EmployeeID is changing, pre-check uniqueness
+            if (!string.Equals(user.EmployeeID ?? "", newEmpId ?? "", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(newEmpId))
+                {
+                    var empExists = await _userMgr.Users
+                        .AnyAsync(u => u.Id != id && u.EmployeeID != null && u.EmployeeID.ToUpper() == newEmpId.ToUpper());
+
+                    if (empExists)
+                        return BadRequest("EmployeeID already taken.");
+                }
+            }
+
             user.FirstName = dto.FirstName;
             user.MiddleName = dto.MiddleName;
             user.LastName = dto.LastName;
             user.PhoneNumber = dto.PhoneNumber;
+            user.EmployeeID = newEmpId; // either new value or null
 
-            user.EmployeeID = dto.EmployeeID ?? user.EmployeeID;
+            IdentityResult result;
+            try
+            {
+                result = await _userMgr.UpdateAsync(user);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                if (dbEx.InnerException is SqlException sqlEx &&
+                    (sqlEx.Number == 2601 || sqlEx.Number == 2627))
+                {
+                    return BadRequest("EmployeeID already taken.");
+                }
+                throw;
+            }
 
-            var result = await _userMgr.UpdateAsync(user);
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
             return NoContent();
         }
+
 
         /// <summary>
         /// Assign roles to user
