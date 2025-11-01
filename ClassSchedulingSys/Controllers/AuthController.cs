@@ -5,6 +5,8 @@ using ClassSchedulingSys.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace ClassSchedulingSys.Controllers
@@ -37,6 +39,19 @@ namespace ClassSchedulingSys.Controllers
             if (userExists != null)
                 return BadRequest("Email is already registered.");
 
+            // Normalize employee id
+            var empId = string.IsNullOrWhiteSpace(dto.EmployeeID) ? null : dto.EmployeeID.Trim();
+
+            // Pre-check: is EmployeeID already used?
+            if (!string.IsNullOrWhiteSpace(empId))
+            {
+                var empExists = await _userMgr.Users
+                    .AnyAsync(u => u.EmployeeID != null && u.EmployeeID.ToUpper() == empId.ToUpper());
+
+                if (empExists)
+                    return BadRequest("EmployeeID already taken.");
+            }
+
             var user = new ApplicationUser
             {
                 UserName = dto.Email,
@@ -44,11 +59,26 @@ namespace ClassSchedulingSys.Controllers
                 FirstName = dto.FirstName,
                 MiddleName = dto.MiddleName,
                 LastName = dto.LastName,
-
-                EmployeeID = string.IsNullOrWhiteSpace(dto.EmployeeID) ? null : dto.EmployeeID
+                EmployeeID = empId
             };
 
-            var result = await _userMgr.CreateAsync(user, dto.Password);
+            IdentityResult result;
+            try
+            {
+                result = await _userMgr.CreateAsync(user, dto.Password);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                // Handle DB unique constraint race (defensive)
+                if (dbEx.InnerException is SqlException sqlEx &&
+                    (sqlEx.Number == 2601 || sqlEx.Number == 2627))
+                {
+                    // Unique constraint violation (likely EmployeeID)
+                    return BadRequest("EmployeeID already taken.");
+                }
+
+                throw; // rethrow other DB exceptions
+            }
 
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
@@ -57,6 +87,7 @@ namespace ClassSchedulingSys.Controllers
 
             return Ok("Registration successful.");
         }
+
 
         /// <summary>
         /// Logs in an existing user and returns a JWT
