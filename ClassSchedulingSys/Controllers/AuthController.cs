@@ -198,6 +198,68 @@ namespace ClassSchedulingSys.Controllers
             });
         }
 
+        // Add these endpoints to your ClassSchedulingSys/Controllers/AuthController.cs
+
+        /// <summary>
+        /// Toggle 2FA on or off for the current authenticated user
+        /// </summary>
+        [HttpPost("toggle-2fa")]
+        [Authorize]
+        public async Task<IActionResult> Toggle2FA([FromBody] Toggle2FADto dto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null)
+                return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound("User not found.");
+
+            // Check if email is confirmed before enabling 2FA
+            if (dto.Enabled && !user.EmailConfirmed)
+                return BadRequest("Email must be confirmed before enabling 2FA.");
+
+            user.TwoFactorEnabled = dto.Enabled;
+            var result = await _userMgr.UpdateAsync(user);
+
+            if (!result.Succeeded)
+                return BadRequest("Failed to update 2FA settings.");
+
+            return Ok(new
+            {
+                Message = dto.Enabled ? "2FA enabled successfully." : "2FA disabled successfully.",
+                TwoFactorEnabled = user.TwoFactorEnabled
+            });
+        }
+
+        /// <summary>
+        /// Get current user's 2FA status
+        /// </summary>
+        [HttpGet("2fa-status")]
+        [Authorize]
+        public async Task<IActionResult> Get2FAStatus()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null)
+                return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound("User not found.");
+
+            return Ok(new
+            {
+                TwoFactorEnabled = user.TwoFactorEnabled,
+                EmailConfirmed = user.EmailConfirmed
+            });
+        }
+
+        // Add this DTO class to ClassSchedulingSys/DTO/ folder
+        public class Toggle2FADto
+        {
+            public bool Enabled { get; set; }
+        }
+
 
 
         [HttpPost("confirm-2fa")]
@@ -322,7 +384,9 @@ namespace ClassSchedulingSys.Controllers
                 FullName = user.FullName,
                 user.PhoneNumber,
                 user.DepartmentId,
-                EmployeeID = user.EmployeeID
+                EmployeeID = user.EmployeeID,
+                TwoFactorEnabled = user.TwoFactorEnabled,  // ✅ Added
+                EmailConfirmed = user.EmailConfirmed        // ✅ Added
             });
         }
 
@@ -444,23 +508,18 @@ namespace ClassSchedulingSys.Controllers
 
             var user = await _userMgr.FindByIdAsync(dto.UserId);
             if (user == null)
-                // For security, respond with generic error so callers can't confirm user existence
                 return BadRequest("Invalid token or user.");
 
-            // decode token if it was encoded
+            // ✅ Decode token (since it comes URL-encoded from the email link)
             var decodedToken = Uri.UnescapeDataString(dto.Token);
 
             var result = await _userMgr.ResetPasswordAsync(user, decodedToken, dto.NewPassword);
             if (!result.Succeeded)
             {
-                // Combine errors and return them (these are typically validation errors)
                 var errors = string.Join("; ", result.Errors.Select(e => e.Description));
                 return BadRequest($"Could not reset password: {errors}");
             }
 
-            // Optionally: when password reset succeeds, you might want to:
-            // - Reset failed access count, unlock account, or update security stamps
-            // - Sign the user in automatically (not recommended in some contexts)
             return Ok("Password has been reset successfully. You may now log in with your new password.");
         }
 
