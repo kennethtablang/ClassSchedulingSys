@@ -408,14 +408,43 @@ namespace ClassSchedulingSys.Controllers
             if (user == null)
                 return NotFound();
 
+            // ✅ Normalize incoming EmployeeID (optional)
+            var newEmpId = string.IsNullOrWhiteSpace(dto.EmployeeID) ? null : dto.EmployeeID.Trim();
+
+            // ✅ If EmployeeID is changing, pre-check uniqueness
+            if (!string.Equals(user.EmployeeID ?? "", newEmpId ?? "", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(newEmpId))
+                {
+                    var empExists = await _userMgr.Users
+                        .AnyAsync(u => u.Id != userId && u.EmployeeID != null && u.EmployeeID.ToUpper() == newEmpId.ToUpper());
+
+                    if (empExists)
+                        return BadRequest("EmployeeID already taken.");
+                }
+            }
+
             user.FirstName = dto.FirstName;
             user.MiddleName = dto.MiddleName;
             user.LastName = dto.LastName;
             user.PhoneNumber = dto.PhoneNumber;
+            user.EmployeeID = newEmpId; // ✅ Apply the new or null value
 
-            //user.EmployeeID = dto.EmployeeID ?? user.EmployeeID;
+            IdentityResult result;
+            try
+            {
+                result = await _userMgr.UpdateAsync(user);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                if (dbEx.InnerException is SqlException sqlEx &&
+                    (sqlEx.Number == 2601 || sqlEx.Number == 2627))
+                {
+                    return BadRequest("EmployeeID already taken.");
+                }
+                throw;
+            }
 
-            var result = await _userMgr.UpdateAsync(user);
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
