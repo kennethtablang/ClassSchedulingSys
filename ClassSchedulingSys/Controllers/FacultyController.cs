@@ -27,7 +27,15 @@ namespace ClassSchedulingSys.Controllers
         {
             var facultyUsers = await _userManager.GetUsersInRoleAsync("Faculty");
 
-            var result = facultyUsers.Select(f => new FacultyReadDto
+            var deanUsers = await _userManager.GetUsersInRoleAsync("Dean");
+
+            var combined = facultyUsers
+                .Concat(deanUsers)
+                .GroupBy(u => u.Id)
+                .Select(g => g.First())
+                .ToList();
+
+            var result = combined.Select(f => new FacultyReadDto
             {
                 Id = f.Id,
                 FullName = f.FullName,

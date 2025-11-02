@@ -76,6 +76,15 @@ namespace ClassSchedulingSys
             builder.Services.AddScoped<ISchedulePdfService, SchedulePdfService>();
             builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+            builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+            builder.Services.AddScoped<IEmailService, MailKitEmailService>();
+
+            builder.Services.AddSingleton<IBackgroundEmailQueue, BackgroundEmailQueue>();
+            builder.Services.AddHostedService<BackgroundEmailSender>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+
+
+
             // 6. Controllers + JSON options
             builder.Services
                 .AddControllers()

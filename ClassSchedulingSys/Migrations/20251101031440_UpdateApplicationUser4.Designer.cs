@@ -4,6 +4,7 @@ using ClassSchedulingSys.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ClassSchedulingSys.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251101031440_UpdateApplicationUser4")]
+    partial class UpdateApplicationUser4
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -29,9 +32,6 @@ namespace ClassSchedulingSys.Migrations
 
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
-
-                    b.Property<string>("ApprovalMessage")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -55,9 +55,6 @@ namespace ClassSchedulingSys.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsApproved")
                         .HasColumnType("bit");
 
                     b.Property<string>("LastName")
@@ -148,7 +145,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Buildings", (string)null);
+                    b.ToTable("Buildings");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.ClassSection", b =>
@@ -183,7 +180,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasIndex("SemesterId");
 
-                    b.ToTable("ClassSections", (string)null);
+                    b.ToTable("ClassSections");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.CollegeCourse", b =>
@@ -210,7 +207,7 @@ namespace ClassSchedulingSys.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("CollegeCourses", (string)null);
+                    b.ToTable("CollegeCourses");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Department", b =>
@@ -230,7 +227,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Departments", (string)null);
+                    b.ToTable("Departments");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.FacultySubjectAssignment", b =>
@@ -250,7 +247,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("FacultySubjectAssignments", (string)null);
+                    b.ToTable("FacultySubjectAssignments");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Room", b =>
@@ -278,7 +275,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasIndex("BuildingId");
 
-                    b.ToTable("Rooms", (string)null);
+                    b.ToTable("Rooms");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Schedule", b =>
@@ -329,7 +326,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("Schedules", (string)null);
+                    b.ToTable("Schedules");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.SchoolYear", b =>
@@ -357,7 +354,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("SchoolYears", (string)null);
+                    b.ToTable("SchoolYears");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Semester", b =>
@@ -388,7 +385,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.HasIndex("SchoolYearId");
 
-                    b.ToTable("Semesters", (string)null);
+                    b.ToTable("Semesters");
                 });
 
             modelBuilder.Entity("ClassSchedulingSys.Models.Subject", b =>
@@ -434,7 +431,7 @@ namespace ClassSchedulingSys.Migrations
                     b.HasIndex("SubjectCode")
                         .IsUnique();
 
-                    b.ToTable("Subjects", (string)null);
+                    b.ToTable("Subjects");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>

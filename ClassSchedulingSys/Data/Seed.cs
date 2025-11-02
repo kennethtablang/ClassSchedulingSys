@@ -36,7 +36,7 @@ namespace ClassSchedulingSys.Data
             }
 
             // Optional: Seed a default SuperAdmin user
-            var adminEmail = "admin@pcnl.edu";
+            var adminEmail = "kennethreytablang@gmail.com";
             if (await userManager.FindByEmailAsync(adminEmail) == null)
             {
                 var adminUser = new ApplicationUser

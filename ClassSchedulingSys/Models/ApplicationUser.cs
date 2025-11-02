@@ -21,6 +21,16 @@ namespace ClassSchedulingSys.Models
 
         public string? EmployeeID { get; set; }
 
+        public string? TwoFactorCodeHash { get; set; }
+
+        public DateTime? TwoFactorCodeExpiry { get; set; }
+
+        public int TwoFactorAttempts { get; set; } = 0;
+
+        public bool IsApproved { get; set; } = false;
+
+        public string? ApprovalMessage { get; set; }
+
         // ← Department linkage
         public int? DepartmentId { get; set; }
         //[ForeignKey("DepartmentId")]

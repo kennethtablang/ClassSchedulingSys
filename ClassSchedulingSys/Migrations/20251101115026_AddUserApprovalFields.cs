@@ -5,34 +5,34 @@
 namespace ClassSchedulingSys.Migrations
 {
     /// <inheritdoc />
-    public partial class AppDbCOntextUpdate : Migration
+    public partial class AddUserApprovalFields : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
-                name: "EmployeeID",
+                name: "ApprovalMessage",
                 table: "AspNetUsers",
-                type: "nvarchar(450)",
+                type: "nvarchar(max)",
                 nullable: true);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_AspNetUsers_EmployeeID",
+            migrationBuilder.AddColumn<bool>(
+                name: "IsApproved",
                 table: "AspNetUsers",
-                column: "EmployeeID",
-                unique: true,
-                filter: "[EmployeeID] IS NOT NULL");
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_AspNetUsers_EmployeeID",
+            migrationBuilder.DropColumn(
+                name: "ApprovalMessage",
                 table: "AspNetUsers");
 
             migrationBuilder.DropColumn(
-                name: "EmployeeID",
+                name: "IsApproved",
                 table: "AspNetUsers");
         }
     }

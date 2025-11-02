@@ -11,4 +11,16 @@ namespace ClassSchedulingSys.DTO
 
         public string? EmployeeID { get; set; }
     }
+
+    public class ChangeEmailRequestDto
+    {
+        public string NewEmail { get; set; } = string.Empty;
+    }
+
+    public class ConfirmChangeEmailDto
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string NewEmail { get; set; } = string.Empty;
+        public string Token { get; set; } = string.Empty;
+    }
 }

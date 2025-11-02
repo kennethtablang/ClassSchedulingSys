@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ClassSchedulingSys.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251030231408_AppDbCOntextUpdate")]
-    partial class AppDbCOntextUpdate
+    [Migration("20251031124627_AddingtheRequire2FAForTheUserApplication")]
+    partial class AddingtheRequire2FAForTheUserApplication
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -85,6 +85,9 @@ namespace ClassSchedulingSys.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Require2FA")
                         .HasColumnType("bit");
 
                     b.Property<string>("SecurityStamp")
@@ -184,7 +187,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<bool>("IsArchived")
                         .HasColumnType("bit");
@@ -194,6 +197,9 @@ namespace ClassSchedulingSys.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("CollegeCourses");
                 });
@@ -395,7 +401,7 @@ namespace ClassSchedulingSys.Migrations
 
                     b.Property<string>("SubjectCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SubjectTitle")
                         .IsRequired()
@@ -415,6 +421,9 @@ namespace ClassSchedulingSys.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CollegeCourseId");
+
+                    b.HasIndex("SubjectCode")
+                        .IsUnique();
 
                     b.ToTable("Subjects");
                 });
