@@ -72,6 +72,11 @@ namespace ClassSchedulingSys.Data
                 .HasFilter("[EmployeeID] IS NOT NULL");
 
             modelBuilder.Entity<Subject>()
+                .HasIndex(s => new { s.SubjectCode, s.YearLevel, s.CollegeCourseId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
+
+            modelBuilder.Entity<Subject>()
                 .HasIndex(s => s.SubjectCode)
                 .IsUnique();
 

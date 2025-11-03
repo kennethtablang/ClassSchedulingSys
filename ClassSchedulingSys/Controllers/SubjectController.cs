@@ -59,12 +59,17 @@ namespace ClassSchedulingSys.Controllers
             if (string.IsNullOrWhiteSpace(code))
                 return BadRequest("SubjectCode is required.");
 
-            // Case-insensitive existence check
-            var exists = await _context.Subjects
-                .AnyAsync(s => s.SubjectCode != null && s.SubjectCode.ToUpper() == code.ToUpper());
+            // ✅ NEW: Check for duplicate combination of SubjectCode + YearLevel + CollegeCourseId
+            var duplicateExists = await _context.Subjects
+                .AnyAsync(s =>
+                    s.SubjectCode != null &&
+                    s.SubjectCode.ToUpper() == code.ToUpper() &&
+                    s.YearLevel == dto.YearLevel &&
+                    s.CollegeCourseId == dto.CollegeCourseId &&
+                    s.IsActive);
 
-            if (exists)
-                return BadRequest("Subject code already taken.");
+            if (duplicateExists)
+                return BadRequest($"A subject with code '{code}' already exists for {dto.YearLevel} in this course.");
 
             var subject = _mapper.Map<Subject>(dto);
             subject.SubjectCode = code; // ensure stored value is trimmed
@@ -89,12 +94,18 @@ namespace ClassSchedulingSys.Controllers
             if (string.IsNullOrWhiteSpace(newCode))
                 return BadRequest("SubjectCode is required.");
 
-            // Ensure no other subject (different id) already uses that code (case-insensitive)
-            var codeTaken = await _context.Subjects
-                .AnyAsync(s => s.Id != id && s.SubjectCode != null && s.SubjectCode.ToUpper() == newCode.ToUpper());
+            // ✅ NEW: Check for duplicate combination (excluding current subject)
+            var duplicateExists = await _context.Subjects
+                .AnyAsync(s =>
+                    s.Id != id &&
+                    s.SubjectCode != null &&
+                    s.SubjectCode.ToUpper() == newCode.ToUpper() &&
+                    s.YearLevel == dto.YearLevel &&
+                    s.CollegeCourseId == dto.CollegeCourseId &&
+                    s.IsActive);
 
-            if (codeTaken)
-                return BadRequest("Subject code already taken.");
+            if (duplicateExists)
+                return BadRequest($"A subject with code '{newCode}' already exists for {dto.YearLevel} in this course.");
 
             // Map properties (AutoMapper or manual)
             _mapper.Map(dto, subject);
@@ -145,6 +156,19 @@ namespace ClassSchedulingSys.Controllers
 
             if (subject.IsActive)
                 return BadRequest("Subject is already active.");
+
+            // ✅ Check if restoring would create a duplicate
+            var duplicateExists = await _context.Subjects
+                .AnyAsync(s =>
+                    s.Id != id &&
+                    s.SubjectCode != null &&
+                    s.SubjectCode.ToUpper() == subject.SubjectCode.ToUpper() &&
+                    s.YearLevel == subject.YearLevel &&
+                    s.CollegeCourseId == subject.CollegeCourseId &&
+                    s.IsActive);
+
+            if (duplicateExists)
+                return BadRequest($"Cannot restore: A subject with code '{subject.SubjectCode}' already exists for {subject.YearLevel} in this course.");
 
             subject.IsActive = true;
             await _context.SaveChangesAsync();
