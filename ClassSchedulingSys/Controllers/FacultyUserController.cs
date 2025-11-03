@@ -80,25 +80,46 @@ namespace ClassSchedulingSys.Controllers
             return Ok(result);
         }
 
-        // GET: api/facultyuser/print/my-schedule
+        // GET: api/facultyuser/print-my-schedule
         [HttpGet("print-my-schedule")]
-        public async Task<IActionResult> PrintMySchedule([FromQuery] int? semesterId)
+        public async Task<IActionResult> PrintMySchedule([FromQuery] int? semesterId, [FromQuery] DayOfWeek? day)
         {
             var facultyId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
                             User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            if (facultyId == null) return Unauthorized("Faculty ID not found in token claims.");
 
-            var schedules = await _context.Schedules
-                .Where(s => s.FacultyId == facultyId &&
-                    (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId))
-                .IncludeAll()
-                .ToListAsync();
+            if (facultyId == null)
+                return Unauthorized("Faculty ID not found in token claims.");
+
+            // Base query: schedules for this faculty
+            var query = _context.Schedules
+                .Where(s => s.FacultyId == facultyId);
+
+            // Apply semester filter if provided
+            if (semesterId.HasValue)
+            {
+                query = query.Where(s => s.ClassSection.SemesterId == semesterId.Value);
+            }
+
+            // NEW: Apply day filter if provided
+            if (day.HasValue)
+            {
+                query = query.Where(s => s.Day == day.Value);
+            }
+
+            // Include all necessary navigation properties
+            var schedules = await query.IncludeAll().ToListAsync();
 
             if (!schedules.Any())
                 return NotFound("No schedules found.");
 
+            // Generate PDF with appropriate label
             var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, "Faculty", facultyId);
-            return File(pdfBytes, "application/pdf", $"Schedule_Faculty_{facultyId}_Sem{semesterId}.pdf");
+
+            // Create filename with day label if filtered
+            var dayLabel = day.HasValue ? $"_{day.Value}" : string.Empty;
+            var filename = $"Schedule_Faculty_{facultyId}{dayLabel}_Sem{semesterId}.pdf";
+
+            return File(pdfBytes, "application/pdf", filename);
         }
 
 
