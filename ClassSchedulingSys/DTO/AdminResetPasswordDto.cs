@@ -7,4 +7,9 @@ namespace ClassSchedulingSys.DTO
         public string NewPassword { get; set; } = null!;
         public string ConfirmPassword { get; set; } = null!;
     }
+
+    public class SendEmailConfirmationDto
+    {
+        public string Email { get; set; } = string.Empty;
+    }
 }

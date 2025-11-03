@@ -126,9 +126,7 @@ namespace ClassSchedulingSys.Controllers
 
 
 
-        /// <summary>
-        /// Logs in an existing user and returns a JWT
-        /// </summary>
+        // ClassSchedulingSys/Controllers/AuthController.cs - Updated Login Method
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
@@ -139,15 +137,24 @@ namespace ClassSchedulingSys.Controllers
             // Block deactivated users
             if (!user.IsActive)
             {
-                // Keep message generic but informative for admin-managed flows
                 return Unauthorized("Account is deactivated.");
             }
 
             // Block users who haven't been approved by admin yet
             if (!user.IsApproved)
             {
-                // Informative so registrants know why they cannot log in yet
                 return Unauthorized("Account pending approval. Please wait for an administrator to approve your account.");
+            }
+
+            // ✅ NEW: Check if email is confirmed
+            if (!user.EmailConfirmed)
+            {
+                return Unauthorized(new
+                {
+                    Message = "Email not confirmed. Please check your email for the confirmation link.",
+                    RequiresEmailConfirmation = true,
+                    UserId = user.Id
+                });
             }
 
             var signInResult = await _signInMgr.CheckPasswordSignInAsync(user, dto.Password, false);
@@ -550,6 +557,163 @@ namespace ClassSchedulingSys.Controllers
             }
 
             return Ok("Password has been reset successfully. You may now log in with your new password.");
+        }
+
+        // Add these methods to ClassSchedulingSys/Controllers/AuthController.cs
+
+        /// <summary>
+        /// Request initial email confirmation (for newly approved users)
+        /// Generates and sends a 6-digit OTP to user's email
+        /// </summary>
+        [HttpPost("request-email-confirmation")]
+        [Authorize]
+        public async Task<IActionResult> RequestEmailConfirmation()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null) return NotFound("User not found.");
+
+            // If already confirmed, no need to send
+            if (user.EmailConfirmed)
+                return BadRequest("Email already confirmed.");
+
+            // Generate 6-digit code
+            var code = TwoFactorHelper.GenerateNumericCode(6);
+            var hash = TwoFactorHelper.ComputeHash(code, _twoFaSecret);
+
+            // Store in TwoFactorCodeHash temporarily (reusing the field)
+            user.TwoFactorCodeHash = hash;
+            user.TwoFactorCodeExpiry = DateTime.UtcNow.Add(_twoFaExpiry);
+            user.TwoFactorAttempts = 0;
+
+            var updateResult = await _userMgr.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                return StatusCode(500, "Failed to generate confirmation code.");
+
+            // Send email
+            var body = $@"
+                <p>Dear {user.FullName},</p>
+                <p>Welcome to the PCNL Class Scheduling System!</p>
+                <p>Your email confirmation code is: <strong style='font-size: 24px; color: #2563eb;'>{code}</strong></p>
+                <p>This code expires in {_twoFaExpiry.TotalMinutes} minutes.</p>
+                <p>If you didn't request this code, please contact your system administrator.</p>
+                <p>— PCNL ClassSchedulingSys</p>";
+
+            try
+            {
+                await _emailSvc.SendEmailAsync(user.Email!, "Confirm Your Email - Class Scheduling System", body);
+                return Ok(new { Message = "Confirmation code sent to your email." });
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't expose details
+                return StatusCode(500, "Failed to send confirmation email.");
+            }
+        }
+
+        /// <summary>
+        /// Confirm email with OTP code
+        /// </summary>
+        [HttpPost("confirm-email")]
+        [Authorize]
+        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailDto dto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null) return NotFound("User not found.");
+
+            if (user.EmailConfirmed)
+                return BadRequest("Email already confirmed.");
+
+            // Check expiration
+            if (!user.TwoFactorCodeExpiry.HasValue || user.TwoFactorCodeExpiry.Value < DateTime.UtcNow)
+                return BadRequest("The code has expired. Please request a new one.");
+
+            // Check attempt limit
+            if (user.TwoFactorAttempts >= _twoFaMaxAttempts)
+            {
+                user.TwoFactorCodeHash = null;
+                user.TwoFactorCodeExpiry = null;
+                user.TwoFactorAttempts = 0;
+                await _userMgr.UpdateAsync(user);
+                return BadRequest("Too many failed attempts. Please request a new code.");
+            }
+
+            // Validate code
+            var providedHash = TwoFactorHelper.ComputeHash(dto.Code, _twoFaSecret);
+            if (user.TwoFactorCodeHash == null || !string.Equals(user.TwoFactorCodeHash, providedHash, StringComparison.Ordinal))
+            {
+                user.TwoFactorAttempts += 1;
+                await _userMgr.UpdateAsync(user);
+                return BadRequest("Invalid code.");
+            }
+
+            // Success: confirm email and clear code
+            user.EmailConfirmed = true;
+            user.TwoFactorCodeHash = null;
+            user.TwoFactorCodeExpiry = null;
+            user.TwoFactorAttempts = 0;
+
+            var updateResult = await _userMgr.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                return StatusCode(500, "Failed to confirm email.");
+
+            return Ok(new { Message = "Email confirmed successfully!" });
+        }
+
+        /// <summary>
+        /// Resend email confirmation code
+        /// </summary>
+        [HttpPost("resend-email-confirmation")]
+        [Authorize]
+        public async Task<IActionResult> ResendEmailConfirmation()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null) return NotFound("User not found.");
+
+            if (user.EmailConfirmed)
+                return BadRequest("Email already confirmed.");
+
+            // Rate limiting: disallow if code was sent recently
+            if (user.TwoFactorCodeExpiry.HasValue &&
+                user.TwoFactorCodeExpiry.Value > DateTime.UtcNow.AddMinutes(-1))
+            {
+                return BadRequest("A code was recently sent. Please wait before requesting again.");
+            }
+
+            // Generate new code
+            var code = TwoFactorHelper.GenerateNumericCode(6);
+            var hash = TwoFactorHelper.ComputeHash(code, _twoFaSecret);
+
+            user.TwoFactorCodeHash = hash;
+            user.TwoFactorCodeExpiry = DateTime.UtcNow.Add(_twoFaExpiry);
+            user.TwoFactorAttempts = 0;
+
+            await _userMgr.UpdateAsync(user);
+
+            // Send email
+            var body = $@"
+                <p>Dear {user.FullName},</p>
+                <p>Your new email confirmation code is: <strong style='font-size: 24px; color: #2563eb;'>{code}</strong></p>
+                <p>This code expires in {_twoFaExpiry.TotalMinutes} minutes.</p>
+                <p>— PCNL ClassSchedulingSys</p>";
+
+            await _emailSvc.SendEmailAsync(user.Email!, "Confirm Your Email - Class Scheduling System", body);
+
+            return Ok(new { Message = "New confirmation code sent to your email." });
+        }
+
+        // Add this DTO class
+        public class ConfirmEmailDto
+        {
+            public string Code { get; set; } = null!;
         }
 
 
