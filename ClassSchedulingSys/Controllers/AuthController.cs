@@ -146,7 +146,7 @@ namespace ClassSchedulingSys.Controllers
                 return Unauthorized("Account pending approval. Please wait for an administrator to approve your account.");
             }
 
-            // ✅ NEW: Check if email is confirmed
+            // NEW: Check if email is confirmed
             if (!user.EmailConfirmed)
             {
                 return Unauthorized(new
@@ -611,6 +611,189 @@ namespace ClassSchedulingSys.Controllers
                 // Log error but don't expose details
                 return StatusCode(500, "Failed to send confirmation email.");
             }
+        }
+
+        /// <summary>
+        /// Request email change - sends OTP to new email
+        /// </summary>
+        [HttpPost("request-email-change")]
+        [Authorize]
+        public async Task<IActionResult> RequestEmailChange([FromBody] RequestEmailChangeDto dto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null) return NotFound("User not found.");
+
+            // Validate new email
+            if (string.IsNullOrWhiteSpace(dto.NewEmail))
+                return BadRequest("New email is required.");
+
+            // Check if same as current email
+            if (string.Equals(user.Email, dto.NewEmail, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("This is already your registered email.");
+
+            // Check if email is already taken
+            var existing = await _userMgr.FindByEmailAsync(dto.NewEmail);
+            if (existing != null)
+                return BadRequest("This email is already in use by another account.");
+
+            // Generate 6-digit code
+            var code = TwoFactorHelper.GenerateNumericCode(6);
+            var hash = TwoFactorHelper.ComputeHash(code + dto.NewEmail, _twoFaSecret);
+
+            // Store in TwoFactorCodeHash temporarily (reusing the field)
+            user.TwoFactorCodeHash = hash;
+            user.TwoFactorCodeExpiry = DateTime.UtcNow.Add(_twoFaExpiry);
+            user.TwoFactorAttempts = 0;
+
+            var updateResult = await _userMgr.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                return StatusCode(500, "Failed to generate confirmation code.");
+
+            // Send email to NEW email address
+            var body = $@"
+                <p>Dear {user.FullName},</p>
+                <p>You requested to change your email address to <strong>{System.Net.WebUtility.HtmlEncode(dto.NewEmail)}</strong>.</p>
+                <p>Your verification code is: <strong style='font-size: 24px; color: #2563eb;'>{code}</strong></p>
+                <p>This code expires in {_twoFaExpiry.TotalMinutes} minutes.</p>
+                <p>If you didn't request this change, please ignore this email and contact your administrator immediately.</p>
+                <p>— PCNL ClassSchedulingSys</p>";
+
+            try
+            {
+                await _emailSvc.SendEmailAsync(dto.NewEmail, "Confirm Email Change - Class Scheduling System", body);
+                return Ok(new { Message = $"Verification code sent to {dto.NewEmail}" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Failed to send verification email. Please try another email.");
+            }
+        }
+
+        /// <summary>
+        /// Confirm email change with OTP
+        /// </summary>
+        [HttpPost("confirm-email-change")]
+        [Authorize]
+        public async Task<IActionResult> ConfirmEmailChange([FromBody] ConfirmEmailChangeDto dto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null) return NotFound("User not found.");
+
+            // Validate inputs
+            if (string.IsNullOrWhiteSpace(dto.NewEmail) || string.IsNullOrWhiteSpace(dto.Code))
+                return BadRequest("Email and code are required.");
+
+            // Check expiration
+            if (!user.TwoFactorCodeExpiry.HasValue || user.TwoFactorCodeExpiry.Value < DateTime.UtcNow)
+                return BadRequest("The code has expired. Please request a new one.");
+
+            // Check attempt limit
+            if (user.TwoFactorAttempts >= _twoFaMaxAttempts)
+            {
+                user.TwoFactorCodeHash = null;
+                user.TwoFactorCodeExpiry = null;
+                user.TwoFactorAttempts = 0;
+                await _userMgr.UpdateAsync(user);
+                return BadRequest("Too many failed attempts. Please request a new code.");
+            }
+
+            // Validate code
+            var providedHash = TwoFactorHelper.ComputeHash(dto.Code + dto.NewEmail, _twoFaSecret);
+            if (user.TwoFactorCodeHash == null || !string.Equals(user.TwoFactorCodeHash, providedHash, StringComparison.Ordinal))
+            {
+                user.TwoFactorAttempts += 1;
+                await _userMgr.UpdateAsync(user);
+                return BadRequest("Invalid code.");
+            }
+
+            // Check if email is still available
+            var existing = await _userMgr.FindByEmailAsync(dto.NewEmail);
+            if (existing != null && existing.Id != userId)
+                return BadRequest("This email is already in use by another account.");
+
+            // Success: update email
+            var oldEmail = user.Email;
+            user.Email = dto.NewEmail;
+            user.UserName = dto.NewEmail; // Keep username in sync
+            user.EmailConfirmed = true; // Confirm the new email
+            user.TwoFactorCodeHash = null;
+            user.TwoFactorCodeExpiry = null;
+            user.TwoFactorAttempts = 0;
+
+            var updateResult = await _userMgr.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                return StatusCode(500, "Failed to update email.");
+
+            // Send confirmation to old email
+            try
+            {
+                var notificationBody = $@"
+                    <p>Dear {user.FullName},</p>
+                    <p>Your email address has been successfully changed from <strong>{oldEmail}</strong> to <strong>{dto.NewEmail}</strong>.</p>
+                    <p>If you didn't make this change, please contact your administrator immediately.</p>
+                    <p>— PCNL ClassSchedulingSys</p>";
+
+                await _emailSvc.SendEmailAsync(oldEmail!, "Email Address Changed - Class Scheduling System", notificationBody);
+            }
+            catch
+            {
+                // Log but don't fail the operation
+            }
+
+            return Ok(new { Message = "Email changed successfully!", NewEmail = dto.NewEmail });
+        }
+
+        /// <summary>
+        /// Resend email change code
+        /// </summary>
+        [HttpPost("resend-email-change-code")]
+        [Authorize]
+        public async Task<IActionResult> ResendEmailChangeCode([FromBody] RequestEmailChangeDto dto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _userMgr.FindByIdAsync(userId);
+            if (user == null) return NotFound("User not found.");
+
+            // Rate limiting
+            if (user.TwoFactorCodeExpiry.HasValue &&
+                user.TwoFactorCodeExpiry.Value > DateTime.UtcNow.AddMinutes(-1))
+            {
+                return BadRequest("A code was recently sent. Please wait before requesting again.");
+            }
+
+            // Check if email is still available
+            var existing = await _userMgr.FindByEmailAsync(dto.NewEmail);
+            if (existing != null && existing.Id != userId)
+                return BadRequest("This email is already in use by another account.");
+
+            // Generate new code
+            var code = TwoFactorHelper.GenerateNumericCode(6);
+            var hash = TwoFactorHelper.ComputeHash(code + dto.NewEmail, _twoFaSecret);
+
+            user.TwoFactorCodeHash = hash;
+            user.TwoFactorCodeExpiry = DateTime.UtcNow.Add(_twoFaExpiry);
+            user.TwoFactorAttempts = 0;
+
+            await _userMgr.UpdateAsync(user);
+
+            // Send email
+            var body = $@"
+                <p>Dear {user.FullName},</p>
+                <p>Your new verification code for email change is: <strong style='font-size: 24px; color: #2563eb;'>{code}</strong></p>
+                <p>This code expires in {_twoFaExpiry.TotalMinutes} minutes.</p>
+                <p>— PCNL ClassSchedulingSys</p>";
+
+            await _emailSvc.SendEmailAsync(dto.NewEmail, "Email Change Verification - Class Scheduling System", body);
+
+            return Ok(new { Message = "New verification code sent." });
         }
 
         /// <summary>
