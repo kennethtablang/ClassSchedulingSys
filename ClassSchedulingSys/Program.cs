@@ -31,9 +31,21 @@ namespace ClassSchedulingSys
             // 2. Identity
             builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opts =>
             {
-                opts.Password.RequireDigit = false;
-                opts.Password.RequireNonAlphanumeric = false;
-                opts.Password.RequiredLength = 6;
+                // UPDATED: Strong password requirements
+                opts.Password.RequireDigit = true;              // Must contain at least one number
+                opts.Password.RequireLowercase = true;          // Must contain at least one lowercase letter
+                opts.Password.RequireUppercase = true;          // Must contain at least one uppercase letter
+                opts.Password.RequireNonAlphanumeric = true;    // Must contain at least one special character
+                opts.Password.RequiredLength = 8;               // Minimum 8 characters
+                opts.Password.RequiredUniqueChars = 1;          // At least 1 unique character
+
+                // Optional: Configure lockout settings
+                opts.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+                opts.Lockout.MaxFailedAccessAttempts = 5;
+                opts.Lockout.AllowedForNewUsers = true;
+
+                // Email confirmation not required for login (handled separately)
+                opts.SignIn.RequireConfirmedEmail = false;
             })
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
