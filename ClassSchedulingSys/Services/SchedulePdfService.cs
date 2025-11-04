@@ -83,6 +83,211 @@ namespace ClassSchedulingSys.Services
             return document.GeneratePdf();
         }
 
+        // ClassSchedulingSys/Services/SchedulePdfService.cs
+        public byte[] GenerateFacultyLoadReport(List<FacultySubjectAssignment> assignments, int? semesterId)
+        {
+            if (!assignments.Any())
+                throw new ArgumentException("No assignments provided for report generation.");
+
+            // Group assignments by faculty
+            var groupedByFaculty = assignments
+                .GroupBy(a => a.FacultyId)
+                .ToList();
+
+            // Get semester info for header
+            var firstAssignment = assignments.First();
+            var semesterInfo = firstAssignment.ClassSection?.Semester;
+            var semesterLabel = semesterInfo != null
+                ? $"{semesterInfo.Name} ({semesterInfo.SchoolYear.StartYear}-{semesterInfo.SchoolYear.EndYear})"
+                : "Current Semester";
+
+            var document = QuestPDF.Fluent.Document.Create(container =>
+            {
+                foreach (var facultyGroup in groupedByFaculty)
+                {
+                    var faculty = facultyGroup.First().Faculty;
+                    var facultyAssignments = facultyGroup.ToList();
+
+                    // Calculate totals
+                    var totalUnits = facultyAssignments.Sum(a => a.Subject.Units);
+                    var totalSubjects = facultyAssignments.Select(a => a.SubjectId).Distinct().Count();
+
+                    // Add a page for each faculty member
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.Letter);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(10));
+
+                        page.Header().Row(row =>
+                        {
+                            row.RelativeItem().Column(col =>
+                            {
+                                // Institution Header
+                                col.Item().AlignCenter().Text("Philippine College of Northwestern Luzon")
+                                    .Bold().FontSize(14);
+                                col.Item().AlignCenter().Text("Faculty Academic Load Report")
+                                    .FontSize(12);
+                                col.Item().AlignCenter().Text(semesterLabel)
+                                    .FontSize(10);
+                                col.Item().PaddingVertical(5);
+                            });
+                        });
+
+                        page.Content().Column(column =>
+                        {
+                            // Faculty Information Section
+                            column.Item().PaddingVertical(10).Row(row =>
+                            {
+                                row.RelativeItem().Column(col =>
+                                {
+                                    col.Item().Text(text =>
+                                    {
+                                        text.Span("Faculty Name: ").Bold();
+                                        text.Span(faculty.FullName);
+                                    });
+
+                                    col.Item().Text(text =>
+                                    {
+                                        text.Span("Employee ID: ").Bold();
+                                        text.Span(faculty.EmployeeID ?? "N/A");
+                                    });
+
+                                    col.Item().Text(text =>
+                                    {
+                                        text.Span("Email: ").Bold();
+                                        text.Span(faculty.Email ?? "N/A");
+                                    });
+                                });
+
+                                row.RelativeItem().Column(col =>
+                                {
+                                    col.Item().AlignRight().Text(text =>
+                                    {
+                                        text.Span("Total Units: ").Bold();
+                                        text.Span(totalUnits.ToString()).FontColor(Colors.Blue.Medium);
+                                    });
+
+                                    col.Item().AlignRight().Text(text =>
+                                    {
+                                        text.Span("Total Subjects: ").Bold();
+                                        text.Span(totalSubjects.ToString()).FontColor(Colors.Green.Medium);
+                                    });
+
+                                    col.Item().AlignRight().Text(text =>
+                                    {
+                                        text.Span("Report Generated: ").Bold();
+                                        text.Span(DateTime.Now.ToString("MMM dd, yyyy"));
+                                    });
+                                });
+                            });
+
+                            // Assignments Table
+                            column.Item().PaddingTop(15).Table(table =>
+                            {
+                                // Define columns
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.ConstantColumn(40);  // No.
+                                    columns.RelativeColumn(2);   // Subject Code
+                                    columns.RelativeColumn(3);   // Subject Title
+                                    columns.RelativeColumn(1);   // Units
+                                    columns.RelativeColumn(1);   // Type
+                                    columns.RelativeColumn(2);   // Section
+                                    columns.RelativeColumn(2);   // Course
+                                });
+
+                                // Header
+                                table.Header(header =>
+                                {
+                                    header.Cell().Element(CellStyle).Text("No.").Bold();
+                                    header.Cell().Element(CellStyle).Text("Subject Code").Bold();
+                                    header.Cell().Element(CellStyle).Text("Subject Title").Bold();
+                                    header.Cell().Element(CellStyle).Text("Units").Bold();
+                                    header.Cell().Element(CellStyle).Text("Type").Bold();
+                                    header.Cell().Element(CellStyle).Text("Section").Bold();
+                                    header.Cell().Element(CellStyle).Text("Course").Bold();
+
+                                    static IContainer CellStyle(IContainer container)
+                                    {
+                                        return container
+                                            .BorderBottom(1)
+                                            .BorderColor(Colors.Grey.Lighten1)
+                                            .PaddingVertical(5)
+                                            .Background(Colors.Grey.Lighten3);
+                                    }
+                                });
+
+                                // Body rows
+                                var counter = 1;
+                                foreach (var assignment in facultyAssignments.OrderBy(a => a.Subject.SubjectCode))
+                                {
+                                    var isEvenRow = counter % 2 == 0;
+
+                                    table.Cell().Element(c => RowStyle(c, isEvenRow)).Text(counter.ToString());
+                                    table.Cell().Element(c => RowStyle(c, isEvenRow)).Text(assignment.Subject.SubjectCode);
+                                    table.Cell().Element(c => RowStyle(c, isEvenRow)).Text(assignment.Subject.SubjectTitle);
+                                    table.Cell().Element(c => RowStyle(c, isEvenRow)).AlignCenter().Text(assignment.Subject.Units.ToString());
+                                    table.Cell().Element(c => RowStyle(c, isEvenRow)).Text(assignment.Subject.SubjectType ?? "N/A");
+
+                                    var sectionLabel = $"{assignment.ClassSection.YearLevel}-{assignment.ClassSection.Section}";
+                                    table.Cell().Element(c => RowStyle(c, isEvenRow)).Text(sectionLabel);
+
+                                    table.Cell().Element(c => RowStyle(c, isEvenRow)).Text(assignment.ClassSection.CollegeCourse?.Code ?? "N/A");
+
+                                    counter++;
+                                }
+
+                                static IContainer RowStyle(IContainer container, bool isEven)
+                                {
+                                    return container
+                                        .BorderBottom(1)
+                                        .BorderColor(Colors.Grey.Lighten2)
+                                        .Background(isEven ? Colors.Grey.Lighten4 : Colors.White)
+                                        .PaddingVertical(4)
+                                        .PaddingHorizontal(5);
+                                }
+                            });
+
+                            // Summary Section
+                            column.Item().PaddingTop(20).Row(row =>
+                            {
+                                row.RelativeItem();
+
+                                row.RelativeItem().Column(col =>
+                                {
+                                    col.Item().BorderTop(2).BorderColor(Colors.Grey.Medium).PaddingTop(5);
+
+                                    col.Item().Row(r =>
+                                    {
+                                        r.RelativeItem().Text("Total Teaching Load:").Bold();
+                                        r.ConstantItem(80).AlignRight().Text($"{totalUnits} units").Bold().FontSize(11);
+                                    });
+
+                                    col.Item().PaddingTop(5).Row(r =>
+                                    {
+                                        r.RelativeItem().Text("Number of Subjects:").Bold();
+                                        r.ConstantItem(80).AlignRight().Text(totalSubjects.ToString()).Bold().FontSize(11);
+                                    });
+                                });
+                            });
+                        });
+
+                        page.Footer().AlignCenter().Text(text =>
+                        {
+                            text.Span("Page ");
+                            text.CurrentPageNumber();
+                            text.Span(" of ");
+                            text.TotalPages();
+                            text.Span(" | Generated by PCNL Class Scheduling System");
+                        });
+                    });
+                }
+            });
+
+            return document.GeneratePdf();
+        }
+
         private static IContainer CellStyle(IContainer container) =>
             container.PaddingVertical(5).PaddingHorizontal(5).BorderBottom(1).BorderColor(Colors.Grey.Lighten2);
 
