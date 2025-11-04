@@ -16,6 +16,8 @@ namespace ClassSchedulingSys.Models
 
         public int Units { get; set; }
 
+        public int Hours { get; set; }
+
         [Required]
         public string SubjectType { get; set; }
 

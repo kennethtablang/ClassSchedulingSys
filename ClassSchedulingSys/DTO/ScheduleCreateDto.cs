@@ -68,6 +68,7 @@ namespace ClassSchedulingSys.DTO
         public string SubjectTitle { get; set; } = string.Empty;
         public string SubjectCode { get; set; } = string.Empty;
         public int SubjectUnits { get; set; }
+        public int SubjectHours { get; set; }
         public string SubjectColor { get; set; } = "#999999";
 
         public int ClassSectionId { get; set; }

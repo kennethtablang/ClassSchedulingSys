@@ -600,6 +600,7 @@ namespace ClassSchedulingSys.Controllers
             SubjectTitle = s.Subject.SubjectTitle,
             SubjectCode = s.Subject.SubjectCode,
             SubjectUnits = s.Subject.Units,
+            SubjectHours = s.Subject.Hours,
             SubjectColor = s.Subject.Color ?? "#999999",
 
             ClassSectionId = s.ClassSectionId,

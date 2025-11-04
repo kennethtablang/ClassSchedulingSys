@@ -15,6 +15,9 @@ namespace ClassSchedulingSys.DTO
         public int Units { get; set; }
 
         [Required]
+        public int Hours { get; set; }
+
+        [Required]
         public string SubjectType { get; set; } // "Lecture", "Lab", "Lecture-Lab"
 
         public string? Color { get; set; }
@@ -41,6 +44,9 @@ namespace ClassSchedulingSys.DTO
         public int Units { get; set; }
 
         [Required]
+        public int Hours { get; set; }
+
+        [Required]
         public string SubjectType { get; set; }
 
         [Required]
@@ -64,6 +70,8 @@ namespace ClassSchedulingSys.DTO
         public string SubjectTitle { get; set; }
 
         public int Units { get; set; }
+
+        public int Hours { get; set; }
 
         public string SubjectType { get; set; }
 
