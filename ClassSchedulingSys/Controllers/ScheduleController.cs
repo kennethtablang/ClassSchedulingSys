@@ -408,44 +408,96 @@ namespace ClassSchedulingSys.Controllers
             return NoContent();
         }
 
-        // POST: api/schedule/check-conflict
+        // ✅ FIXED: Improved conflict checking with better error messages
         [HttpPost("check-conflict")]
         public async Task<ActionResult<ConflictCheckResultDto>> CheckConflict(
             [FromBody] ScheduleConflictCheckDto dto)
         {
+            // ✅ Parse the day properly (could be string or enum)
+            DayOfWeek dayOfWeek;
+            if (dto.Day is string dayStr)
+            {
+                if (!Enum.TryParse<DayOfWeek>(dayStr, true, out dayOfWeek))
+                {
+                    return BadRequest($"Invalid day value: {dayStr}");
+                }
+            }
+            else
+            {
+                dayOfWeek = (DayOfWeek)dto.Day;
+            }
+
+            // Validate time range
+            if (dto.EndTime <= dto.StartTime)
+            {
+                return BadRequest("End time must be after start time");
+            }
+
+            // Query for conflicts with detailed resource tracking
             var conflicts = await _context.Schedules
                 .Where(s =>
                     s.IsActive &&
-                    s.Day == dto.Day &&
-                    (
-                        dto.StartTime < s.EndTime && dto.EndTime > s.StartTime
-                    ) &&
+                    s.Day == dayOfWeek &&
+                    // Time overlap: (StartA < EndB) AND (EndA > StartB)
+                    (dto.StartTime < s.EndTime && dto.EndTime > s.StartTime) &&
                     (
                         s.FacultyId == dto.FacultyId ||
                         s.RoomId == dto.RoomId ||
                         s.ClassSectionId == dto.ClassSectionId
                     ) &&
-                    (!dto.Id.HasValue || s.Id != dto.Id.Value) // Ignore the current schedule being edited
+                    // Exclude the current schedule if editing
+                    (!dto.Id.HasValue || s.Id != dto.Id.Value)
                 )
+                .Include(s => s.Faculty)
+                .Include(s => s.Room)
+                .Include(s => s.ClassSection)
+                .Include(s => s.Subject)
                 .ToListAsync();
 
-            var result = new ConflictCheckResultDto
+            if (!conflicts.Any())
             {
-                HasConflict = conflicts.Any(),
-                ConflictingResources = conflicts
-                    .SelectMany(c =>
-                        new[]
-                        {
-                    c.FacultyId == dto.FacultyId ? "Faculty" : null,
-                    c.RoomId == dto.RoomId ? "Room" : null,
-                    c.ClassSectionId == dto.ClassSectionId ? "Section" : null
-                        })
-                    .Where(x => x != null)
-                    .Distinct()
-                    .ToList()!
-            };
+                return Ok(new ConflictCheckResultDto
+                {
+                    HasConflict = false,
+                    ConflictingResources = new List<string>()
+                });
+            }
 
-            return Ok(result);
+            // Build detailed conflict messages
+            var conflictMessages = new List<string>();
+
+            foreach (var conflict in conflicts)
+            {
+                var conflictDetails = new List<string>();
+
+                if (conflict.FacultyId == dto.FacultyId)
+                {
+                    conflictDetails.Add($"Faculty ({conflict.Faculty.FullName})");
+                }
+
+                if (conflict.RoomId == dto.RoomId)
+                {
+                    conflictDetails.Add($"Room ({conflict.Room.Name})");
+                }
+
+                if (conflict.ClassSectionId == dto.ClassSectionId)
+                {
+                    conflictDetails.Add($"Section ({conflict.ClassSection.Section})");
+                }
+
+                if (conflictDetails.Any())
+                {
+                    var timeRange = $"{conflict.StartTime:hh\\:mm}-{conflict.EndTime:hh\\:mm}";
+                    var message = $"{string.Join(" & ", conflictDetails)} already scheduled ({timeRange})";
+                    conflictMessages.Add(message);
+                }
+            }
+
+            return Ok(new ConflictCheckResultDto
+            {
+                HasConflict = true,
+                ConflictingResources = conflictMessages.Distinct().ToList()
+            });
         }
 
 
