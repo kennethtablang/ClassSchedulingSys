@@ -1,4 +1,5 @@
-﻿using ClassSchedulingSys.Data;
+﻿// ClassSchedulingSys/Controllers/ExportController.cs
+using ClassSchedulingSys.Data;
 using ClassSchedulingSys.Interfaces;
 using ClassSchedulingSys.Models;
 using ClassSchedulingSys.Services;
@@ -197,5 +198,66 @@ namespace ClassSchedulingSys.Controllers
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 filename);
         }
+
+        /// <summary>
+        /// Export schedule in GRID format (time slots x rooms) like a visual timetable
+        /// </summary>
+        [HttpGet("schedule/grid-excel")]
+        public async Task<IActionResult> ExportGridSchedule(
+            [FromQuery] int? semesterId,
+            [FromQuery] int? courseId,
+            [FromQuery] int? yearLevel)
+        {
+            // Build query
+            IQueryable<Schedule> query = _context.Schedules;
+
+            if (semesterId.HasValue)
+            {
+                query = query.Where(s => s.ClassSection.SemesterId == semesterId.Value);
+            }
+
+            if (courseId.HasValue)
+            {
+                query = query.Where(s => s.ClassSection.CollegeCourseId == courseId.Value);
+            }
+
+            if (yearLevel.HasValue)
+            {
+                query = query.Where(s => s.ClassSection.YearLevel == yearLevel.Value);
+            }
+
+            // Load schedules with navigation properties
+            var schedules = await query.IncludeAll().ToListAsync();
+
+            if (!schedules.Any())
+                return NotFound("No schedules found for the specified criteria.");
+
+            // Get all rooms
+            var rooms = await _context.Rooms
+                .Include(r => r.Building)
+                .OrderBy(r => r.Name)
+                .ToListAsync();
+
+            // Get semester info
+            var firstSchedule = schedules.First();
+            var semesterName = firstSchedule.ClassSection?.Semester?.Name ?? "N/A";
+            var schoolYear = firstSchedule.ClassSection?.Semester?.SchoolYear;
+            var syLabel = schoolYear != null ? $"{schoolYear.StartYear}-{schoolYear.EndYear}" : "N/A";
+
+            // Generate grid Excel using the new service
+            var gridService = new GridScheduleExcelService();
+            var excelBytes = gridService.GenerateGridScheduleExcel(
+                schedules,
+                rooms,
+                semesterName,
+                syLabel);
+
+            var filename = $"Schedule_Grid_Sem{semesterId}_{DateTime.Now:yyyyMMdd}.xlsx";
+
+            return File(excelBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename);
+        }
+
     }
 }
