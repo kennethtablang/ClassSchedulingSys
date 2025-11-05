@@ -151,6 +151,57 @@ namespace ClassSchedulingSys.Controllers
             return Ok(semester);
         }
 
+        [HttpGet("my-schedule-grid")]
+        public async Task<IActionResult> DownloadMyScheduleGrid([FromQuery] int? semesterId)
+        {
+            var facultyId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                            User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+            if (facultyId == null)
+                return Unauthorized("Faculty ID not found in token claims.");
+
+            // Get faculty info
+            var faculty = await _context.Users.FindAsync(facultyId);
+            if (faculty == null)
+                return NotFound("Faculty member not found.");
+
+            // Build query for faculty schedules
+            var query = _context.Schedules.Where(s => s.FacultyId == facultyId);
+
+            // Apply semester filter if provided
+            if (semesterId.HasValue)
+            {
+                query = query.Where(s => s.ClassSection.SemesterId == semesterId.Value);
+            }
+
+            // Load schedules with all navigation properties
+            var schedules = await query.IncludeAll().ToListAsync();
+
+            if (!schedules.Any())
+                return NotFound("No schedules found.");
+
+            // Get semester info
+            var firstSchedule = schedules.First();
+            var semesterName = firstSchedule.ClassSection?.Semester?.Name ?? "Current Semester";
+            var schoolYear = firstSchedule.ClassSection?.Semester?.SchoolYear;
+            var syLabel = schoolYear != null ? $"{schoolYear.StartYear}-{schoolYear.EndYear}" : "N/A";
+
+            // Generate Excel using the new service
+            var gridService = new FacultyScheduleGridExcelService();
+            var excelBytes = gridService.GenerateFacultyScheduleGrid(
+                schedules,
+                faculty.FullName,
+                faculty.EmployeeID ?? "N/A",
+                semesterName,
+                syLabel);
+
+            var filename = $"My_Schedule_Grid_Sem{semesterId}_{DateTime.Now:yyyyMMdd}.xlsx";
+
+            return File(excelBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename);
+        }
+
         // Helper for mapping
         private static ScheduleReadDto MapToReadDto(Schedule s) => new()
         {

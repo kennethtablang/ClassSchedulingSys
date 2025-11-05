@@ -259,5 +259,53 @@ namespace ClassSchedulingSys.Controllers
                 filename);
         }
 
+        // Add this endpoint for Admin/Dean to download faculty schedule grid
+        [HttpGet("faculty-schedule-grid/{facultyId}")]
+        [Authorize(Roles = "Dean,SuperAdmin")]
+        public async Task<IActionResult> ExportFacultyScheduleGrid(
+            string facultyId,
+            [FromQuery] int? semesterId)
+        {
+            // Get faculty info
+            var faculty = await _context.Users.FindAsync(facultyId);
+            if (faculty == null)
+                return NotFound("Faculty member not found.");
+
+            // Build query for faculty schedules
+            var query = _context.Schedules.Where(s => s.FacultyId == facultyId);
+
+            // Apply semester filter if provided
+            if (semesterId.HasValue)
+            {
+                query = query.Where(s => s.ClassSection.SemesterId == semesterId.Value);
+            }
+
+            // Load schedules with all navigation properties
+            var schedules = await query.IncludeAll().ToListAsync();
+
+            if (!schedules.Any())
+                return NotFound("No schedules found for this faculty member.");
+
+            // Get semester info
+            var firstSchedule = schedules.First();
+            var semesterName = firstSchedule.ClassSection?.Semester?.Name ?? "Current Semester";
+            var schoolYear = firstSchedule.ClassSection?.Semester?.SchoolYear;
+            var syLabel = schoolYear != null ? $"{schoolYear.StartYear}-{schoolYear.EndYear}" : "N/A";
+
+            // Generate Excel using the new service
+            var gridService = new FacultyScheduleGridExcelService();
+            var excelBytes = gridService.GenerateFacultyScheduleGrid(
+                schedules,
+                faculty.FullName,
+                faculty.EmployeeID ?? "N/A",
+                semesterName,
+                syLabel);
+
+            var filename = $"Faculty_Schedule_Grid_{faculty.FullName.Replace(" ", "_")}_Sem{semesterId}_{DateTime.Now:yyyyMMdd}.xlsx";
+
+            return File(excelBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename);
+        }
     }
 }
