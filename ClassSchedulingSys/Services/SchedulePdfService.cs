@@ -44,7 +44,7 @@ namespace ClassSchedulingSys.Services
             {
                 container.Page(page =>
                 {
-                    page.Size(PageSizes.Letter.Landscape()); // Landscape for better schedule visibility
+                    page.Size(PageSizes.Letter.Portrait()); // Landscape for better schedule visibility
                     page.Margin(30);
                     page.DefaultTextStyle(x => x.FontSize(10));
 
@@ -140,7 +140,7 @@ namespace ClassSchedulingSys.Services
                             table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(s.Room?.Name ?? "N/A");
 
                             // Day
-                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(s.Day.ToString());
+                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(FormatDay(s.Day));
 
                             // Time formatted in 12-hour format
                             var timeDisplay = $"{FormatTime(s.StartTime)}\n{FormatTime(s.EndTime)}";
