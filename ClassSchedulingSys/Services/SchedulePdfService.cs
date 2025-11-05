@@ -71,7 +71,7 @@ namespace ClassSchedulingSys.Services
                                     .Bold().FontSize(14);
                                 col.Item().AlignCenter().Text("San Antonio, Agoo, La Union")
                                     .FontSize(10);
-                                col.Item().AlignCenter().Text($"{courseCode} - {courseName}")
+                                col.Item().AlignCenter().Text($"{courseName}")
                                     .Bold().FontSize(12);
                             });
                         });
@@ -90,7 +90,7 @@ namespace ClassSchedulingSys.Services
                             {
                                 col.Item().AlignRight().Text($"{semesterLabel}")
                                     .Bold().FontSize(10);
-                                col.Item().AlignRight().Text($"Year {yearLevel} - {blockLabel}")
+                                col.Item().AlignRight().Text($"Year-Block: {yearLevel} - {blockLabel}")
                                     .Bold().FontSize(10);
                             });
                         });
@@ -149,7 +149,7 @@ namespace ClassSchedulingSys.Services
                                 var isEvenRow = rowCounter % 2 == 0;
 
                                 // Time
-                                var timeDisplay = $"{FormatTime(s.StartTime)}-{FormatTime(s.EndTime)}";
+                                var timeDisplay = $"{FormatTime(s.StartTime)} - {FormatTime(s.EndTime)}";
                                 table.Cell().Element(c => DataCellStyle(c, isEvenRow))
                                     .Text(timeDisplay).FontSize(8);
 
