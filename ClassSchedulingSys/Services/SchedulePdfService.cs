@@ -22,6 +22,224 @@ namespace ClassSchedulingSys.Services
             _environment = environment;
         }
 
+
+        /// <summary>
+        /// Generates a PDF schedule for a specific course, year level, and block
+        /// Formatted similar to the PCNL class schedule format
+        /// </summary>
+        public byte[] GenerateCourseBlockSchedulePdf(
+            List<Schedule> schedules,
+            string courseCode,
+            string courseName,
+            int yearLevel,
+            string blockLabel,
+            string semesterLabel,
+            string schoolYearLabel)
+        {
+            // Get the logo path
+            var logoPath = Path.Combine(_environment.ContentRootPath, "Assets", "PCNL_Logo.jpg");
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.Letter.Portrait()); // Landscape for better table visibility
+                    page.Margin(30);
+                    page.DefaultTextStyle(x => x.FontSize(9));
+
+                    // === HEADER ===
+                    page.Header().Column(headerCol =>
+                    {
+                        // Logo and Institution Name Row
+                        headerCol.Item().AlignCenter().Row(row =>
+                        {
+                            // Logo
+                            row.AutoItem().Column(col =>
+                            {
+                                if (File.Exists(logoPath))
+                                {
+                                    col.Item().AlignMiddle().Height(50).Width(50).Image(logoPath);
+                                }
+                            });
+
+                            row.AutoItem().Width(15);
+
+                            // Header Text
+                            row.AutoItem().Column(col =>
+                            {
+                                col.Item().AlignCenter().Text("PHILIPPINE COLLEGE OF NORTHWESTERN LUZON")
+                                    .Bold().FontSize(14);
+                                col.Item().AlignCenter().Text("San Antonio, Agoo, La Union")
+                                    .FontSize(10);
+                                col.Item().AlignCenter().Text($"{courseCode} - {courseName}")
+                                    .Bold().FontSize(12);
+                            });
+                        });
+
+                        headerCol.Item().PaddingTop(10).Row(row =>
+                        {
+                            row.RelativeItem().Column(col =>
+                            {
+                                col.Item().Text($"Revised Curriculum (2023-2024)")
+                                    .FontSize(9);
+                                col.Item().Text($"SY {schoolYearLabel}")
+                                    .FontSize(9);
+                            });
+
+                            row.RelativeItem().Column(col =>
+                            {
+                                col.Item().AlignRight().Text($"{semesterLabel}")
+                                    .Bold().FontSize(10);
+                                col.Item().AlignRight().Text($"Year {yearLevel} - {blockLabel}")
+                                    .Bold().FontSize(10);
+                            });
+                        });
+                    });
+
+                    // === CONTENT TABLE ===
+                    page.Content().PaddingTop(15).Table(table =>
+                    {
+                        // Define columns
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn(1.5f); // Time
+                            columns.RelativeColumn(1f);   // Day
+                            columns.RelativeColumn(1.5f); // Course Code
+                            columns.RelativeColumn(3f);   // Descriptive Title
+                            columns.RelativeColumn(0.8f); // Units
+                            columns.RelativeColumn(1.2f); // Room
+                            columns.RelativeColumn(2f);   // Instructor
+                        });
+
+                        // Header row
+                        table.Header(header =>
+                        {
+                            header.Cell().Element(HeaderCellStyle).Text("TIME").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("DAY").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("COURSE CODE").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("DESCRIPTIVE TITLE").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("UNITS").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("ROOM").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("INSTRUCTOR").Bold();
+                        });
+
+                        // Sort schedules by day then time
+                        var orderedSchedules = schedules
+                            .OrderBy(s => s.Day)
+                            .ThenBy(s => s.StartTime)
+                            .ToList();
+
+                        // Group by section if multiple sections exist
+                        var sectionGroups = orderedSchedules
+                            .GroupBy(s => s.ClassSection.Section)
+                            .OrderBy(g => g.Key);
+
+                        foreach (var sectionGroup in sectionGroups)
+                        {
+                            // Section header if there are multiple sections
+                            if (sectionGroups.Count() > 1)
+                            {
+                                table.Cell().ColumnSpan(7).Element(SectionHeaderStyle)
+                                    .Text($"BLOCK {sectionGroup.Key}").Bold();
+                            }
+
+                            var rowCounter = 0;
+                            foreach (var s in sectionGroup)
+                            {
+                                var isEvenRow = rowCounter % 2 == 0;
+
+                                // Time
+                                var timeDisplay = $"{FormatTime(s.StartTime)}-{FormatTime(s.EndTime)}";
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(timeDisplay).FontSize(8);
+
+                                // Day
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(FormatDay(s.Day));
+
+                                // Course Code
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Subject?.SubjectCode ?? "N/A");
+
+                                // Descriptive Title
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Subject?.SubjectTitle ?? "N/A").FontSize(8);
+
+                                // Units
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .AlignCenter().Text(s.Subject?.Units.ToString() ?? "0");
+
+                                // Room
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Room?.Name ?? "TBA");
+
+                                // Instructor
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Faculty?.FullName ?? "TBA").FontSize(8);
+
+                                rowCounter++;
+                            }
+
+                            // Total units for this section
+                            if (sectionGroup.Any())
+                            {
+                                var totalUnits = sectionGroup.Sum(s => s.Subject?.Units ?? 0);
+
+                                table.Cell().ColumnSpan(4).Element(TotalCellStyle)
+                                    .AlignRight().Text("Total").Bold();
+
+                                table.Cell().Element(TotalCellStyle)
+                                    .AlignCenter().Text(totalUnits.ToString()).Bold();
+
+                                table.Cell().ColumnSpan(2).Element(TotalCellStyle);
+                            }
+                        }
+                    });
+
+                    // === FOOTER ===
+                    page.Footer().Row(row =>
+                    {
+                        row.RelativeItem().AlignLeft().Text(text =>
+                        {
+                            text.Span("Total Subjects: ").Bold();
+                            text.Span(schedules.Select(s => s.SubjectId).Distinct().Count().ToString());
+                        });
+
+                        row.RelativeItem().AlignCenter().Text(text =>
+                        {
+                            text.Span("Page ");
+                            text.CurrentPageNumber();
+                            text.Span(" of ");
+                            text.TotalPages();
+                        });
+
+                        row.RelativeItem().AlignRight().Text($"Generated: {DateTime.Now:MMM dd, yyyy}").FontSize(7);
+                    });
+                });
+            });
+
+            return document.GeneratePdf();
+        }
+
+        // Additional styling methods
+        private static IContainer SectionHeaderStyle(IContainer container)
+        {
+            return container
+                .Background(Colors.Blue.Lighten3)
+                .PaddingVertical(4)
+                .PaddingHorizontal(5);
+        }
+
+        private static IContainer TotalCellStyle(IContainer container)
+        {
+            return container
+                .BorderTop(1)
+                .BorderColor(Colors.Grey.Darken1)
+                .Background(Colors.Grey.Lighten3)
+                .PaddingVertical(4)
+                .PaddingHorizontal(5);
+        }
+
         /// <summary>
         /// Generates a PDF schedule report based on point of view (Faculty, Room, Class Section, or All)
         /// </summary>

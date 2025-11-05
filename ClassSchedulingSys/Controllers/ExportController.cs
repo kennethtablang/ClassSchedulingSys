@@ -16,11 +16,13 @@ namespace ClassSchedulingSys.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IScheduleExcelService _excelService;
+        private readonly ISchedulePdfService _pdfService;
 
-        public ExportController(ApplicationDbContext context, IScheduleExcelService excelService)
+        public ExportController(ApplicationDbContext context, IScheduleExcelService excelService, ISchedulePdfService pdfService)
         {
             _context = context;
             _excelService = excelService;
+            _pdfService = pdfService;
         }
 
         /// <summary>
@@ -306,6 +308,62 @@ namespace ClassSchedulingSys.Controllers
             return File(excelBytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 filename);
+        }
+
+        [HttpGet("schedule/course-block")]
+        public async Task<IActionResult> ExportCourseBlockSchedule(
+        [FromQuery] int courseId,
+        [FromQuery] int yearLevel,
+        [FromQuery] int semesterId,
+        [FromQuery] string? section = null)
+        {
+            if (courseId == 0 || yearLevel == 0 || semesterId == 0)
+                return BadRequest("Course ID, Year Level, and Semester ID are required.");
+
+            // Build query to get schedules for this course, year, and section
+            var query = _context.Schedules
+                .Where(s =>
+                    s.ClassSection.CollegeCourseId == courseId &&
+                    s.ClassSection.YearLevel == yearLevel &&
+                    s.ClassSection.SemesterId == semesterId);
+
+            // Filter by specific section/block if provided
+            if (!string.IsNullOrWhiteSpace(section))
+            {
+                query = query.Where(s => s.ClassSection.Section == section);
+            }
+
+            // Load schedules with all navigation properties
+            var schedules = await query.IncludeAll().ToListAsync();
+
+            if (!schedules.Any())
+                return NotFound("No schedules found for the specified criteria.");
+
+            // Get course and semester info for header
+            var firstSchedule = schedules.First();
+            var courseName = firstSchedule.ClassSection?.CollegeCourse?.Name ?? "N/A";
+            var courseCode = firstSchedule.ClassSection?.CollegeCourse?.Code ?? "N/A";
+            var semesterName = firstSchedule.ClassSection?.Semester?.Name ?? "N/A";
+            var schoolYear = firstSchedule.ClassSection?.Semester?.SchoolYear;
+            var syLabel = schoolYear != null ? $"{schoolYear.StartYear}-{schoolYear.EndYear}" : "N/A";
+
+            var sectionLabel = string.IsNullOrWhiteSpace(section)
+                ? "All Blocks"
+                : $"Block {section}";
+
+            // Generate PDF
+            var pdfBytes = _pdfService.GenerateCourseBlockSchedulePdf(
+                schedules,
+                courseCode,
+                courseName,
+                yearLevel,
+                sectionLabel,
+                semesterName,
+                syLabel);
+
+            var filename = $"Schedule_{courseCode}_{yearLevel}Y_{section ?? "All"}_{DateTime.Now:yyyyMMdd}.pdf";
+
+            return File(pdfBytes, "application/pdf", filename);
         }
     }
 }
