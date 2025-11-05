@@ -95,7 +95,8 @@ namespace ClassSchedulingSys
             builder.Services.AddHostedService<BackgroundEmailSender>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
 
-
+            // Add this with other service registrations
+            builder.Services.AddScoped<IScheduleExcelService, ScheduleExcelService>();
 
             // 6. Controllers + JSON options
             builder.Services
