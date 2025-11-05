@@ -1,6 +1,7 @@
 ﻿// ClassSchedulingSys/Services/SchedulePdfService.cs
 using ClassSchedulingSys.Interfaces;
 using ClassSchedulingSys.Models;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -48,42 +49,42 @@ namespace ClassSchedulingSys.Services
                     page.DefaultTextStyle(x => x.FontSize(10));
 
                     // === HEADER ===
-                    page.Header().Row(row =>
+                    page.Header().Column(headerCol =>
                     {
-                        // Logo section (left)
-                        row.ConstantItem(70).Column(col =>
+                        // Centered row containing logo and title
+                        headerCol.Item().AlignCenter().Row(row =>
                         {
-                            if (File.Exists(logoPath))
+                            // Logo on the left of the text
+                            row.AutoItem().Column(col =>
                             {
-                                col.Item().Height(60).Image(logoPath);
-                            }
-                        });
+                                if (File.Exists(logoPath))
+                                {
+                                    col.Item().AlignMiddle().Height(60).Width(60).Image(logoPath);
+                                }
+                            });
 
-                        // Title section (center)
-                        row.RelativeItem().Column(col =>
-                        {
-                            col.Item().AlignCenter()
-                                .Text("Philippine College of Northwestern Luzon")
-                                .Bold().FontSize(16);
+                            // Small space between logo and text
+                            row.AutoItem().Width(15);
 
-                            col.Item().AlignCenter()
-                                .Text($"Class Schedule — {pov}: {GetPovLabel(schedules, pov, id)}")
-                                .FontSize(13).SemiBold();
-
-                            if (!string.IsNullOrWhiteSpace(semesterName) || !string.IsNullOrWhiteSpace(syLabel))
+                            // Title section
+                            row.AutoItem().Column(col =>
                             {
-                                col.Item().AlignCenter()
-                                    .Text($"{semesterName} • SY {syLabel}")
-                                    .FontSize(11).Italic();
-                            }
+                                col.Item().AlignCenter().Text("Philippine College of Northwestern Luzon")
+                                    .Bold().FontSize(16);
 
-                            col.Item().AlignCenter()
-                                .Text($"Generated: {DateTime.Now:MMMM dd, yyyy}")
-                                .FontSize(9);
+                                col.Item().AlignCenter().Text($"Class Schedule — {pov}: {GetPovLabel(schedules, pov, id)}")
+                                    .FontSize(13).SemiBold();
+
+                                if (!string.IsNullOrWhiteSpace(semesterName) || !string.IsNullOrWhiteSpace(syLabel))
+                                {
+                                    col.Item().AlignCenter().Text($"{semesterName} • SY {syLabel}")
+                                        .FontSize(11).Italic();
+                                }
+
+                                col.Item().AlignCenter().Text($"Generated: {DateTime.Now:MMMM dd, yyyy}")
+                                    .FontSize(9);
+                            });
                         });
-
-                        // Spacer for balance
-                        row.ConstantItem(70);
                     });
 
                     // === CONTENT TABLE ===
@@ -202,7 +203,7 @@ namespace ClassSchedulingSys.Services
                 : "Current Semester";
 
             // Get the logo path
-            var logoPath = Path.Combine(_environment.ContentRootPath, "Assets", "PCNL_LOGO.png");
+            var logoPath = Path.Combine(_environment.ContentRootPath, "Assets", "PCNL_Logo.jpg");
 
             var document = Document.Create(container =>
             {
@@ -218,45 +219,53 @@ namespace ClassSchedulingSys.Services
                     // Add a page for each faculty member
                     container.Page(page =>
                     {
-                        page.Size(PageSizes.Letter.Landscape()); // Landscape to fit schedule columns
+                        page.Size(PageSizes.Letter.Portrait()); // Landscape to fit schedule columns
                         page.Margin(40);
                         page.DefaultTextStyle(x => x.FontSize(10));
 
                         // === HEADER ===
-                        page.Header().Row(row =>
+                        page.Header().Column(headerCol =>
                         {
-                            // Logo section (left)
-                            row.ConstantItem(70).Column(col =>
+                            // Centered row containing logo and title
+                            headerCol.Item().AlignCenter().Row(row =>
                             {
-                                if (File.Exists(logoPath))
+                                // Logo on the left of the text
+                                row.AutoItem().Column(col =>
                                 {
-                                    col.Item().Height(60).Image(logoPath);
-                                }
-                            });
+                                    if (File.Exists(logoPath))
+                                    {
+                                        col.Item().AlignMiddle().Height(60).Width(60).Image(logoPath);
+                                    }
+                                });
 
-                            // Title section (center)
-                            row.RelativeItem().Column(col =>
-                            {
-                                col.Item().AlignCenter()
-                                    .Text("Philippine College of Northwestern Luzon")
+                                // Small space between logo and text
+                                row.AutoItem().Width(15);
+
+                                // Title section
+                                row.AutoItem().Column(col =>
+                                {
+                                    col.Item().AlignCenter().Text("Philippine College of Northwestern Luzon")
                                     .Bold().FontSize(16);
 
-                                col.Item().AlignCenter()
-                                    .Text("Faculty Academic Load Report")
-                                    .FontSize(13).SemiBold();
+                                    col.Item().AlignCenter().Text("San Antonio, Agoo, La Union 2504 Philippines")
+                                    .FontSize(12);
 
-                                col.Item().AlignCenter()
-                                    .Text(semesterLabel)
-                                    .FontSize(11).Italic();
+                                    col.Item().AlignCenter().Text("Telephone No. (072) 607-3883")
+                                    .FontSize(12);
+                                });
                             });
-
-                            // Spacer for balance
-                            row.ConstantItem(70);
                         });
 
                         // === FACULTY INFORMATION ===
                         page.Content().Column(column =>
                         {
+                            column.Item().PaddingVertical(6);
+
+                            column.Item().AlignCenter().Text("CONSOLIDATED FACULTY LOADING")
+                                .FontSize(16).SemiBold();
+
+                            column.Item().AlignCenter().Text(semesterLabel)
+                                .FontSize(11).Italic();
                             column.Item().PaddingVertical(10).Row(row =>
                             {
                                 row.RelativeItem().Column(col =>
@@ -365,9 +374,9 @@ namespace ClassSchedulingSys.Services
                                     // Schedule info (Day and Time)
                                     if (schedule != null)
                                     {
-                                        table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(schedule.Day.ToString());
+                                        table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(FormatDay(schedule.Day));
 
-                                        var timeDisplay = $"{FormatTime(schedule.StartTime)}-{FormatTime(schedule.EndTime)}";
+                                        var timeDisplay = $"{FormatTime(schedule.StartTime)} - {FormatTime(schedule.EndTime)}";
                                         table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(timeDisplay).FontSize(9);
                                     }
                                     else
@@ -460,6 +469,21 @@ namespace ClassSchedulingSys.Services
 
             return $"{displayHours}:{minutes:D2} {period}";
         }
+
+        private string FormatDay(object dayValue)
+        {
+            if (dayValue == null) return "TBA";
+
+            // Convert to string safely
+            string dayName = dayValue.ToString();
+
+            // Return first three letters, capitalized (Mon, Tue, Wed, etc.)
+            if (dayName.Length >= 3)
+                return dayName.Substring(0, 3);
+
+            return dayName;
+        }
+
 
         /// <summary>
         /// Gets a readable label for the selected entity based on point of view
