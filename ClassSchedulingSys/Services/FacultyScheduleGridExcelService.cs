@@ -272,15 +272,6 @@ namespace ClassSchedulingSys.Services
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
             currentRow++;
 
-            // Subtitle
-            worksheet.Cell(currentRow, 1).Value = "Faculty Teaching Schedule Grid";
-            worksheet.Range(currentRow, 1, currentRow, columnCount + 1).Merge();
-            worksheet.Cell(currentRow, 1).Style
-                .Font.SetBold(true)
-                .Font.SetFontSize(12)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-            currentRow++;
-
             // Faculty Info
             worksheet.Cell(currentRow, 1).Value = $"Faculty: {facultyName}";
             worksheet.Range(currentRow, 1, currentRow, 3).Merge();
@@ -288,15 +279,6 @@ namespace ClassSchedulingSys.Services
                 .Font.SetBold(true)
                 .Font.SetFontSize(11);
 
-            if (!string.IsNullOrWhiteSpace(facultyEmployeeId))
-            {
-                worksheet.Cell(currentRow, 4).Value = $"Employee ID: {facultyEmployeeId}";
-                worksheet.Range(currentRow, 4, currentRow, columnCount + 1).Merge();
-                worksheet.Cell(currentRow, 4).Style
-                    .Font.SetBold(true)
-                    .Font.SetFontSize(11)
-                    .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
-            }
             currentRow++;
 
             // Semester Info
@@ -307,14 +289,6 @@ namespace ClassSchedulingSys.Services
                 .Font.SetFontSize(10)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
             currentRow++;
-
-            // Generated Date
-            worksheet.Cell(currentRow, 1).Value = $"Generated: {DateTime.Now:MMMM dd, yyyy HH:mm}";
-            worksheet.Range(currentRow, 1, currentRow, columnCount + 1).Merge();
-            worksheet.Cell(currentRow, 1).Style
-                .Font.SetFontSize(9)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-            currentRow += 2;
         }
 
         private void CreateDailyBreakdown(
