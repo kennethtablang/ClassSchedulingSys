@@ -4,10 +4,12 @@ using ClassSchedulingSys.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ClassSchedulingSys.Services;
 
 namespace ClassSchedulingSys.Controllers
 {
+    /// <summary>
+    /// Controller for generating academic reports including faculty load reports
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "Faculty,Dean,SuperAdmin")]
@@ -25,6 +27,8 @@ namespace ClassSchedulingSys.Controllers
         /// <summary>
         /// Get faculty load summary for display (total units, total subjects per faculty)
         /// </summary>
+        /// <param name="semesterId">Optional semester ID to filter by specific semester</param>
+        /// <returns>List of faculty with their unit and subject counts</returns>
         [HttpGet("faculty-load/summary")]
         public async Task<IActionResult> GetFacultyLoadSummary([FromQuery] int? semesterId)
         {
@@ -67,7 +71,10 @@ namespace ClassSchedulingSys.Controllers
 
         /// <summary>
         /// Download PDF report for all faculty members (one page per faculty)
+        /// Includes subject assignments with day and time information from schedules
         /// </summary>
+        /// <param name="semesterId">Optional semester ID to filter assignments and schedules</param>
+        /// <returns>PDF file with all faculty load reports</returns>
         [HttpGet("faculty-load/all")]
         public async Task<IActionResult> DownloadAllFacultyLoadReport([FromQuery] int? semesterId)
         {
@@ -78,10 +85,12 @@ namespace ClassSchedulingSys.Controllers
 
             var facultyIds = facultyUsers.Select(f => f.Id).ToList();
 
-            // Get all assignments for these faculty
+            // Get all assignments for these faculty with ALL necessary navigation properties
+            // ✅ IMPORTANT: Include Subject.Schedules to get day/time information
             var query = _context.FacultySubjectAssignments
                 .Include(fsa => fsa.Faculty)
                 .Include(fsa => fsa.Subject)
+                    .ThenInclude(s => s.Schedules) // ✅ Load schedules for day/time info
                 .Include(fsa => fsa.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
                 .Include(fsa => fsa.ClassSection)
@@ -109,7 +118,11 @@ namespace ClassSchedulingSys.Controllers
 
         /// <summary>
         /// Download PDF report for a specific faculty member
+        /// Includes all subject assignments with schedule information (day and time)
         /// </summary>
+        /// <param name="facultyId">The unique identifier of the faculty member</param>
+        /// <param name="semesterId">Optional semester ID to filter assignments and schedules</param>
+        /// <returns>PDF file with faculty load report for the specified faculty</returns>
         [HttpGet("faculty-load/{facultyId}")]
         public async Task<IActionResult> DownloadFacultyLoadReport(string facultyId, [FromQuery] int? semesterId)
         {
@@ -118,10 +131,12 @@ namespace ClassSchedulingSys.Controllers
             if (faculty == null)
                 return NotFound("Faculty member not found.");
 
-            // Get assignments for this faculty
+            // Get assignments for this faculty with ALL necessary navigation properties
+            // ✅ IMPORTANT: Include Subject.Schedules to get day/time information
             var query = _context.FacultySubjectAssignments
                 .Include(fsa => fsa.Faculty)
                 .Include(fsa => fsa.Subject)
+                    .ThenInclude(s => s.Schedules) // ✅ Load schedules for day/time info
                 .Include(fsa => fsa.ClassSection)
                     .ThenInclude(cs => cs.CollegeCourse)
                 .Include(fsa => fsa.ClassSection)
