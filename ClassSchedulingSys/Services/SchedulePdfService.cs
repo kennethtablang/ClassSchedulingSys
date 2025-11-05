@@ -1,4 +1,5 @@
-﻿using ClassSchedulingSys.Interfaces;
+﻿// ClassSchedulingSys/Services/SchedulePdfService.cs - FIXED WITH 12-HOUR FORMAT
+using ClassSchedulingSys.Interfaces;
 using ClassSchedulingSys.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -8,6 +9,32 @@ namespace ClassSchedulingSys.Services
 {
     public class SchedulePdfService : ISchedulePdfService
     {
+        /// <summary>
+        /// Converts 24-hour time format to 12-hour format with AM/PM
+        /// </summary>
+        private string FormatTimeTo12Hour(TimeSpan time)
+        {
+            var hours = time.Hours;
+            var minutes = time.Minutes;
+            var period = hours >= 12 ? "PM" : "AM";
+
+            // Convert to 12-hour format
+            if (hours == 0)
+                hours = 12; // Midnight
+            else if (hours > 12)
+                hours -= 12;
+
+            return $"{hours}:{minutes:D2} {period}";
+        }
+
+        /// <summary>
+        /// Formats a time range in 12-hour format
+        /// </summary>
+        private string FormatTimeRange(TimeSpan startTime, TimeSpan endTime)
+        {
+            return $"{FormatTimeTo12Hour(startTime)} - {FormatTimeTo12Hour(endTime)}";
+        }
+
         public byte[] GenerateSchedulePdf(List<Schedule> schedules, string pov, string id)
         {
             var semesterName = schedules.FirstOrDefault()?.ClassSection?.Semester?.Name ?? "";
@@ -19,14 +46,15 @@ namespace ClassSchedulingSys.Services
                 container.Page(page =>
                 {
                     page.Margin(30);
+                    page.Size(PageSizes.Letter.Landscape());
 
                     // Header
                     page.Header()
                         .Column(column =>
                         {
-                            column.Item().Text("Philippine College of Northwestern Luzon").FontSize(20).Bold().AlignCenter();
+                            column.Item().Text("Philippine College of Northwestern Luzon")
+                                .FontSize(20).Bold().AlignCenter();
 
-                            // Add POV and Semester/SY
                             column.Item().Text($"Class Schedule — {pov}: {GetPovLabel(schedules, pov, id)}")
                                 .FontSize(12).SemiBold().AlignCenter();
 
@@ -35,6 +63,8 @@ namespace ClassSchedulingSys.Services
                                 column.Item().Text($"{semesterName} SY {syLabel}")
                                     .FontSize(11).Italic().AlignCenter();
                             }
+
+                            column.Item().PaddingVertical(5); // Add spacing
                         });
 
                     // Content table
@@ -42,48 +72,50 @@ namespace ClassSchedulingSys.Services
                     {
                         table.ColumnsDefinition(columns =>
                         {
-                            columns.RelativeColumn(); // Subject
-                            columns.RelativeColumn(); // Section
-                            columns.RelativeColumn(); // Faculty
-                            columns.RelativeColumn(); // Room
-                            columns.RelativeColumn(); // Day
-                            columns.ConstantColumn(80); // Time
+                            columns.RelativeColumn(2.5f); // Subject (wider)
+                            columns.RelativeColumn(1.5f); // Section
+                            columns.RelativeColumn(2);    // Faculty
+                            columns.RelativeColumn(1.5f); // Room
+                            columns.RelativeColumn(1);    // Day
+                            columns.RelativeColumn(2);    // Time (wider for 12-hour format)
                         });
 
                         // Header row
                         table.Header(header =>
                         {
-                            header.Cell().Element(CellStyle).Text("Subject").FontSize(12).SemiBold();
-                            header.Cell().Element(CellStyle).Text("Section").FontSize(12).SemiBold();
-                            header.Cell().Element(CellStyle).Text("Faculty").FontSize(12).SemiBold();
-                            header.Cell().Element(CellStyle).Text("Room").FontSize(12).SemiBold();
-                            header.Cell().Element(CellStyle).Text("Day").FontSize(12).SemiBold();
-                            header.Cell().Element(CellStyle).Text("Time").FontSize(12).SemiBold();
+                            header.Cell().Element(CellStyle).Text("Subject").FontSize(11).SemiBold();
+                            header.Cell().Element(CellStyle).Text("Section").FontSize(11).SemiBold();
+                            header.Cell().Element(CellStyle).Text("Faculty").FontSize(11).SemiBold();
+                            header.Cell().Element(CellStyle).Text("Room").FontSize(11).SemiBold();
+                            header.Cell().Element(CellStyle).Text("Day").FontSize(11).SemiBold();
+                            header.Cell().Element(CellStyle).Text("Time").FontSize(11).SemiBold();
                         });
 
-                        // Data rows
+                        // Data rows - sorted by day and time
                         foreach (var s in schedules.OrderBy(s => s.Day).ThenBy(s => s.StartTime))
                         {
-                            table.Cell().Element(CellStyle).Text(s.Subject?.SubjectTitle ?? "N/A").FontSize(10);
-                            table.Cell().Element(CellStyle).Text($"{s.ClassSection?.CollegeCourse?.Code} {s.ClassSection?.YearLevel}{s.ClassSection?.Section}").FontSize(10);
-                            table.Cell().Element(CellStyle).Text(s.Faculty?.FullName ?? "N/A").FontSize(10);
-                            table.Cell().Element(CellStyle).Text(s.Room?.Name ?? "N/A").FontSize(10);
-                            table.Cell().Element(CellStyle).Text(s.Day.ToString()).FontSize(10);
-                            table.Cell().Element(CellStyle).Text($"{s.StartTime} - {s.EndTime}").FontSize(10);
+                            table.Cell().Element(CellStyle).Text(s.Subject?.SubjectTitle ?? "N/A").FontSize(9);
+
+                            table.Cell().Element(CellStyle)
+                                .Text($"{s.ClassSection?.CollegeCourse?.Code} {s.ClassSection?.YearLevel}{s.ClassSection?.Section}")
+                                .FontSize(9);
+
+                            table.Cell().Element(CellStyle).Text(s.Faculty?.FullName ?? "N/A").FontSize(9);
+                            table.Cell().Element(CellStyle).Text(s.Room?.Name ?? "N/A").FontSize(9);
+                            table.Cell().Element(CellStyle).Text(s.Day.ToString()).FontSize(9);
+
+                            // ✅ Use 12-hour format for time
+                            table.Cell().Element(CellStyle)
+                                .Text(FormatTimeRange(s.StartTime, s.EndTime))
+                                .FontSize(9);
                         }
                     });
-
-                    // Footer
-                    page.Footer()
-                        .AlignCenter()
-                        .Text(text => text.Span("Generated by ClassSchedulingSys").FontSize(8));
                 });
             });
 
             return document.GeneratePdf();
         }
 
-        // ClassSchedulingSys/Services/SchedulePdfService.cs
         public byte[] GenerateFacultyLoadReport(List<FacultySubjectAssignment> assignments, int? semesterId)
         {
             if (!assignments.Any())
@@ -101,7 +133,7 @@ namespace ClassSchedulingSys.Services
                 ? $"{semesterInfo.Name} ({semesterInfo.SchoolYear.StartYear}-{semesterInfo.SchoolYear.EndYear})"
                 : "Current Semester";
 
-            var document = QuestPDF.Fluent.Document.Create(container =>
+            var document = Document.Create(container =>
             {
                 foreach (var facultyGroup in groupedByFaculty)
                 {
@@ -279,7 +311,8 @@ namespace ClassSchedulingSys.Services
                             text.CurrentPageNumber();
                             text.Span(" of ");
                             text.TotalPages();
-                            text.Span(" | Generated by PCNL Class Scheduling System");
+                            text.Span(" | Generated by PCNL Class Scheduling System on ");
+                            text.Span(DateTime.Now.ToString("MMMM dd, yyyy"));
                         });
                     });
                 }
@@ -289,7 +322,11 @@ namespace ClassSchedulingSys.Services
         }
 
         private static IContainer CellStyle(IContainer container) =>
-            container.PaddingVertical(5).PaddingHorizontal(5).BorderBottom(1).BorderColor(Colors.Grey.Lighten2);
+            container
+                .PaddingVertical(5)
+                .PaddingHorizontal(5)
+                .BorderBottom(1)
+                .BorderColor(Colors.Grey.Lighten2);
 
         private string GetPovLabel(List<Schedule> schedules, string pov, string id)
         {
