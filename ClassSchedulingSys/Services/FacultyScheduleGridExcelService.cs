@@ -5,12 +5,14 @@ using ClosedXML.Excel;
 namespace ClassSchedulingSys.Services
 {
     /// <summary>
-    /// Service for generating faculty-specific schedule grid Excel files with time slots and daily breakdowns
+    /// Service for generating faculty-specific schedule grid Excel files optimized for coupon printing
     /// </summary>
     public class FacultyScheduleGridExcelService
     {
         /// <summary>
-        /// Generates a faculty schedule grid Excel with time slots, days, and accumulated hours
+        /// Generates a faculty schedule grid Excel with two worksheets:
+        /// 1. Schedule Grid (time slots, days, accumulated hours) - optimized for printing
+        /// 2. Daily Class Breakdown (detailed schedule information)
         /// </summary>
         public byte[] GenerateFacultyScheduleGrid(
             List<Schedule> schedules,
@@ -20,10 +22,32 @@ namespace ClassSchedulingSys.Services
             string schoolYearLabel)
         {
             using var workbook = new XLWorkbook();
+
+            // WORKSHEET 1: Schedule Grid (optimized for coupon printing)
+            CreateScheduleGridWorksheet(workbook, schedules, facultyName, facultyEmployeeId, semesterLabel, schoolYearLabel);
+
+            // WORKSHEET 2: Daily Class Breakdown
+            CreateDailyBreakdownWorksheet(workbook, schedules, facultyName, facultyEmployeeId, semesterLabel, schoolYearLabel);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        #region Worksheet 1: Schedule Grid (Optimized for Printing)
+
+        private void CreateScheduleGridWorksheet(
+            XLWorkbook workbook,
+            List<Schedule> schedules,
+            string facultyName,
+            string facultyEmployeeId,
+            string semesterLabel,
+            string schoolYearLabel)
+        {
             var worksheet = workbook.Worksheets.Add("Schedule Grid");
 
-            // Generate time slots from 7:00 AM to 9:00 PM in 30-minute intervals
-            var timeSlots = GenerateTimeSlots(TimeSpan.FromHours(7), TimeSpan.FromHours(21), 30);
+            // Generate time slots from 7:00 AM to 6:00 PM ONLY (removed excess after 6pm)
+            var timeSlots = GenerateTimeSlots(TimeSpan.FromHours(7), TimeSpan.FromHours(18), 30);
 
             // Days of the week (Monday to Saturday)
             var daysOfWeek = new[]
@@ -38,8 +62,8 @@ namespace ClassSchedulingSys.Services
 
             int currentRow = 1;
 
-            // === HEADER SECTION ===
-            CreateHeader(worksheet, facultyName, facultyEmployeeId, semesterLabel, schoolYearLabel, ref currentRow, daysOfWeek.Length);
+            // === COMPACT HEADER SECTION (Reduced spacing) ===
+            CreateCompactHeader(worksheet, facultyName, facultyEmployeeId, semesterLabel, schoolYearLabel, ref currentRow, daysOfWeek.Length);
 
             // === COLUMN HEADERS ===
             int headerRow = currentRow;
@@ -53,7 +77,7 @@ namespace ClassSchedulingSys.Services
                 .Fill.SetBackgroundColor(XLColor.FromHtml("#4472C4"))
                 .Font.SetFontColor(XLColor.White)
                 .Border.SetOutsideBorder(XLBorderStyleValues.Medium);
-            worksheet.Column(1).Width = 12;
+            worksheet.Column(1).Width = 11; // ✅ Slightly reduced width
 
             // Day columns
             for (int i = 0; i < daysOfWeek.Length; i++)
@@ -67,7 +91,7 @@ namespace ClassSchedulingSys.Services
                     .Fill.SetBackgroundColor(XLColor.FromHtml("#4472C4"))
                     .Font.SetFontColor(XLColor.White)
                     .Border.SetOutsideBorder(XLBorderStyleValues.Medium);
-                worksheet.Column(colIndex).Width = 20;
+                worksheet.Column(colIndex).Width = 18; // ✅ Slightly reduced width
             }
 
             currentRow++;
@@ -82,13 +106,14 @@ namespace ClassSchedulingSys.Services
 
             foreach (var timeSlot in timeSlots)
             {
-                // Time column
-                worksheet.Cell(currentRow, 1).Value = $"{FormatTime(timeSlot.Start)}\n{FormatTime(timeSlot.End)}";
+                // IMPROVED: Single line time format (2:30 PM-3:00 PM instead of multi-line)
+                var timeDisplay = $"{FormatTime(timeSlot.Start)}-{FormatTime(timeSlot.End)}";
+
+                worksheet.Cell(currentRow, 1).Value = timeDisplay;
                 worksheet.Cell(currentRow, 1).Style
-                    .Font.SetFontSize(9)
+                    .Font.SetFontSize(8) // ✅ Reduced font size
                     .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                     .Alignment.SetVertical(XLAlignmentVerticalValues.Center)
-                    .Alignment.SetWrapText(true)
                     .Border.SetOutsideBorder(XLBorderStyleValues.Thin)
                     .Fill.SetBackgroundColor(XLColor.FromHtml("#F0F0F0"));
 
@@ -129,27 +154,24 @@ namespace ClassSchedulingSys.Services
                             var scheduleHours = (schedule.EndTime - schedule.StartTime).TotalHours;
                             dailyHours[day] += scheduleHours;
 
-                            // Build cell content with full details
+                            // COMPACT: Build cell content with reduced text
                             var subjectCode = schedule.Subject?.SubjectCode ?? "N/A";
                             var subjectTitle = schedule.Subject?.SubjectTitle ?? "N/A";
                             var courseCode = schedule.ClassSection?.CollegeCourse?.Code ?? "";
                             var yearLevel = schedule.ClassSection?.YearLevel.ToString() ?? "";
                             var section = schedule.ClassSection?.Section ?? "";
                             var room = schedule.Room?.Name ?? "TBA";
-                            var timeRange = $"{FormatTime(schedule.StartTime)} - {FormatTime(schedule.EndTime)}";
+                            var timeRange = $"{FormatTime(schedule.StartTime)}-{FormatTime(schedule.EndTime)}"; // ✅ Single line
 
-                            var cellContent = $"{timeRange}\n" +
-                                            $"{subjectCode}\n" +
-                                            $"{subjectTitle}\n" +
-                                            $"{courseCode} {yearLevel}-{section}\n" +
-                                            $"Room: {room}";
+                            // COMPACT: Reduced line breaks
+                            var cellContent = $"{timeRange}\n{subjectCode}\n{subjectTitle}\n{courseCode} {yearLevel}-{section}\nRoom: {room}";
 
                             cell.Value = cellContent;
 
                             // Apply styling with subject color
                             var bgColor = GetColorFromHex(schedule.Subject?.Color ?? "#CCCCCC");
                             cell.Style
-                                .Font.SetFontSize(8)
+                                .Font.SetFontSize(7) // Reduced font size for compactness
                                 .Font.SetBold(true)
                                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                                 .Alignment.SetVertical(XLAlignmentVerticalValues.Center)
@@ -174,10 +196,11 @@ namespace ClassSchedulingSys.Services
             int gridEndRow = currentRow - 1;
 
             // === DAILY HOURS SUMMARY ROW ===
-            currentRow++;
+            currentRow++; // Reduced spacing
             worksheet.Cell(currentRow, 1).Value = "Daily Hours";
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetBold(true)
+                .Font.SetFontSize(9) // Reduced font
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                 .Fill.SetBackgroundColor(XLColor.FromHtml("#FFC000"))
                 .Border.SetOutsideBorder(XLBorderStyleValues.Medium);
@@ -191,15 +214,15 @@ namespace ClassSchedulingSys.Services
                 worksheet.Cell(currentRow, colIndex).Value = $"{hours:F2} hrs";
                 worksheet.Cell(currentRow, colIndex).Style
                     .Font.SetBold(true)
-                    .Font.SetFontSize(11)
+                    .Font.SetFontSize(9) // Reduced font
                     .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                     .Fill.SetBackgroundColor(XLColor.FromHtml("#FFC000"))
                     .Border.SetOutsideBorder(XLBorderStyleValues.Medium);
             }
 
-            currentRow += 2;
+            currentRow++; // Reduced spacing (was +=2)
 
-            // === WEEKLY SUMMARY ===
+            // === COMPACT WEEKLY SUMMARY ===
             var totalWeeklyHours = dailyHours.Values.Sum();
             var totalClasses = schedules.Count;
             var uniqueSubjects = schedules.Select(s => s.SubjectId).Distinct().Count();
@@ -208,7 +231,7 @@ namespace ClassSchedulingSys.Services
             worksheet.Range(currentRow, 1, currentRow, daysOfWeek.Length + 1).Merge();
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetBold(true)
-                .Font.SetFontSize(12)
+                .Font.SetFontSize(11) // Reduced font
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                 .Fill.SetBackgroundColor(XLColor.FromHtml("#4472C4"))
                 .Font.SetFontColor(XLColor.White)
@@ -226,35 +249,25 @@ namespace ClassSchedulingSys.Services
             foreach (var (label, value) in summaryItems)
             {
                 worksheet.Cell(currentRow, 1).Value = label;
-                worksheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+                worksheet.Cell(currentRow, 1).Style.Font.SetBold(true).Font.SetFontSize(9); // ✅ Reduced font
                 worksheet.Range(currentRow, 1, currentRow, 2).Merge();
 
                 worksheet.Cell(currentRow, 3).Value = value;
                 worksheet.Cell(currentRow, 3).Style
                     .Font.SetBold(true)
-                    .Font.SetFontSize(11)
+                    .Font.SetFontSize(9) // Reduced font
                     .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
                 worksheet.Range(currentRow, 3, currentRow, daysOfWeek.Length + 1).Merge();
 
                 currentRow++;
             }
 
-            // === DETAILED BREAKDOWN BY DAY ===
-            currentRow += 2;
-            CreateDailyBreakdown(worksheet, schedules, daysOfWeek, ref currentRow);
-
             // Freeze panes (header rows and time column)
             worksheet.SheetView.FreezeRows(headerRow);
             worksheet.SheetView.FreezeColumns(1);
-
-            using var stream = new MemoryStream();
-            workbook.SaveAs(stream);
-            return stream.ToArray();
         }
 
-        #region Helper Methods
-
-        private void CreateHeader(
+        private void CreateCompactHeader(
             IXLWorksheet worksheet,
             string facultyName,
             string facultyEmployeeId,
@@ -263,12 +276,23 @@ namespace ClassSchedulingSys.Services
             ref int currentRow,
             int columnCount)
         {
+            // COMPACT: Reduced font sizes and spacing
+
             // Title
             worksheet.Cell(currentRow, 1).Value = "PHILIPPINE COLLEGE OF NORTHWESTERN LUZON";
             worksheet.Range(currentRow, 1, currentRow, columnCount + 1).Merge();
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetBold(true)
-                .Font.SetFontSize(14)
+                .Font.SetFontSize(12) // Reduced from 14
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            currentRow++;
+
+            // Subtitle
+            worksheet.Cell(currentRow, 1).Value = "Faculty Teaching Schedule Grid";
+            worksheet.Range(currentRow, 1, currentRow, columnCount + 1).Merge();
+            worksheet.Cell(currentRow, 1).Style
+                .Font.SetBold(true)
+                .Font.SetFontSize(10) // Reduced from 12
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
             currentRow++;
 
@@ -277,8 +301,17 @@ namespace ClassSchedulingSys.Services
             worksheet.Range(currentRow, 1, currentRow, 3).Merge();
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetBold(true)
-                .Font.SetFontSize(11);
+                .Font.SetFontSize(9); // Reduced from 11
 
+            if (!string.IsNullOrWhiteSpace(facultyEmployeeId))
+            {
+                worksheet.Cell(currentRow, 4).Value = $"Employee ID: {facultyEmployeeId}";
+                worksheet.Range(currentRow, 4, currentRow, columnCount + 1).Merge();
+                worksheet.Cell(currentRow, 4).Style
+                    .Font.SetBold(true)
+                    .Font.SetFontSize(9) // Reduced from 11
+                    .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+            }
             currentRow++;
 
             // Semester Info
@@ -286,28 +319,94 @@ namespace ClassSchedulingSys.Services
             worksheet.Range(currentRow, 1, currentRow, columnCount + 1).Merge();
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetItalic(true)
-                .Font.SetFontSize(10)
+                .Font.SetFontSize(9) // Reduced from 10
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
             currentRow++;
+
+            // Generated Date
+            worksheet.Cell(currentRow, 1).Value = $"Generated: {DateTime.Now:MMMM dd, yyyy HH:mm}";
+            worksheet.Range(currentRow, 1, currentRow, columnCount + 1).Merge();
+            worksheet.Cell(currentRow, 1).Style
+                .Font.SetFontSize(8) // Reduced from 9
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            currentRow++; // Only 1 space instead of 2
         }
 
-        private void CreateDailyBreakdown(
-            IXLWorksheet worksheet,
+        #endregion
+
+        #region Worksheet 2: Daily Class Breakdown
+
+        private void CreateDailyBreakdownWorksheet(
+            XLWorkbook workbook,
             List<Schedule> schedules,
-            DayOfWeek[] daysOfWeek,
-            ref int currentRow)
+            string facultyName,
+            string facultyEmployeeId,
+            string semesterLabel,
+            string schoolYearLabel)
         {
-            worksheet.Cell(currentRow, 1).Value = "DAILY CLASS BREAKDOWN";
+            var worksheet = workbook.Worksheets.Add("Daily Class Breakdown");
+
+            var daysOfWeek = new[]
+            {
+                DayOfWeek.Monday,
+                DayOfWeek.Tuesday,
+                DayOfWeek.Wednesday,
+                DayOfWeek.Thursday,
+                DayOfWeek.Friday,
+                DayOfWeek.Saturday
+            };
+
+            int currentRow = 1;
+
+            // === HEADER ===
+            worksheet.Cell(currentRow, 1).Value = "PHILIPPINE COLLEGE OF NORTHWESTERN LUZON";
+            worksheet.Range(currentRow, 1, currentRow, 7).Merge();
+            worksheet.Cell(currentRow, 1).Style
+                .Font.SetBold(true)
+                .Font.SetFontSize(14)
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            currentRow++;
+
+            worksheet.Cell(currentRow, 1).Value = "Daily Class Breakdown";
             worksheet.Range(currentRow, 1, currentRow, 7).Merge();
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetBold(true)
                 .Font.SetFontSize(12)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                .Fill.SetBackgroundColor(XLColor.FromHtml("#4472C4"))
-                .Font.SetFontColor(XLColor.White)
-                .Border.SetOutsideBorder(XLBorderStyleValues.Medium);
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
             currentRow++;
 
+            // Faculty Info
+            worksheet.Cell(currentRow, 1).Value = $"Faculty: {facultyName}";
+            worksheet.Range(currentRow, 1, currentRow, 3).Merge();
+            worksheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+
+            if (!string.IsNullOrWhiteSpace(facultyEmployeeId))
+            {
+                worksheet.Cell(currentRow, 4).Value = $"Employee ID: {facultyEmployeeId}";
+                worksheet.Range(currentRow, 4, currentRow, 7).Merge();
+                worksheet.Cell(currentRow, 4).Style
+                    .Font.SetBold(true)
+                    .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+            }
+            currentRow++;
+
+            worksheet.Cell(currentRow, 1).Value = $"{semesterLabel} • SY {schoolYearLabel}";
+            worksheet.Range(currentRow, 1, currentRow, 7).Merge();
+            worksheet.Cell(currentRow, 1).Style
+                .Font.SetItalic(true)
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            currentRow += 2;
+
+            // Set column widths
+            worksheet.Column(1).Width = 15; // Time
+            worksheet.Column(2).Width = 12; // Subject Code
+            worksheet.Column(3).Width = 30; // Title
+            worksheet.Column(4).Width = 15; // Section
+            worksheet.Column(5).Width = 12; // Room
+            worksheet.Column(6).Width = 8;  // Hours
+            worksheet.Column(7).Width = 12; // Type
+
+            // === DAILY BREAKDOWN ===
             foreach (var day in daysOfWeek)
             {
                 var daySchedules = schedules
@@ -348,7 +447,8 @@ namespace ClassSchedulingSys.Services
                     var hours = (schedule.EndTime - schedule.StartTime).TotalHours;
                     dayTotalHours += hours;
 
-                    worksheet.Cell(currentRow, 1).Value = $"{FormatTime(schedule.StartTime)} - {FormatTime(schedule.EndTime)}";
+                    // ✅ IMPROVED: Single line time format
+                    worksheet.Cell(currentRow, 1).Value = $"{FormatTime(schedule.StartTime)}-{FormatTime(schedule.EndTime)}";
                     worksheet.Cell(currentRow, 2).Value = schedule.Subject?.SubjectCode ?? "N/A";
                     worksheet.Cell(currentRow, 3).Value = schedule.Subject?.SubjectTitle ?? "N/A";
                     worksheet.Cell(currentRow, 4).Value = $"{schedule.ClassSection?.CollegeCourse?.Code} {schedule.ClassSection?.YearLevel}-{schedule.ClassSection?.Section}";
@@ -391,6 +491,10 @@ namespace ClassSchedulingSys.Services
                 currentRow += 2;
             }
         }
+
+        #endregion
+
+        #region Helper Methods
 
         private List<TimeSlot> GenerateTimeSlots(TimeSpan start, TimeSpan end, int intervalMinutes)
         {
