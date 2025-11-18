@@ -77,8 +77,9 @@ namespace ClassSchedulingSys.Data
                 .HasFilter("[IsActive] = 1");
 
             modelBuilder.Entity<Subject>()
-                .HasIndex(s => s.SubjectCode)
-                .IsUnique();
+                .HasIndex(s => new { s.SubjectCode, s.YearLevel, s.CollegeCourseId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
 
             modelBuilder.Entity<CollegeCourse>()
                 .HasIndex(c => c.Code)
