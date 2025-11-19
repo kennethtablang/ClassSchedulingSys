@@ -134,22 +134,21 @@ namespace ClassSchedulingSys.Services
             var worksheet = workbook.Worksheets.Add(dayName);
 
             // Set column widths for better readability
-            worksheet.Column(1).Width = 12;  // Time
-            worksheet.Column(2).Width = 15;  // Room
-            worksheet.Column(3).Width = 12;  // Subject Code
+            worksheet.Column(1).Width = 18;  // Time
+            worksheet.Column(2).Width = 12;  // Room
+            worksheet.Column(3).Width = 15;  // Subject Code
             worksheet.Column(4).Width = 30;  // Subject Title
             worksheet.Column(5).Width = 25;  // Faculty
-            worksheet.Column(6).Width = 12;  // Section
-            worksheet.Column(7).Width = 15;  // Course
-            worksheet.Column(8).Width = 8;   // Units
-            worksheet.Column(9).Width = 15;  // Building
+            worksheet.Column(6).Width = 10;  // Section
+            worksheet.Column(7).Width = 10;  // Course
+            worksheet.Column(8).Width = 6;   // Units
 
             int currentRow = 1;
 
             // === HEADER SECTION ===
             // Title
             worksheet.Cell(currentRow, 1).Value = "PHILIPPINE COLLEGE OF NORTHWESTERN LUZON";
-            worksheet.Range(currentRow, 1, currentRow, 9).Merge();
+            worksheet.Range(currentRow, 1, currentRow, 8).Merge();
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetBold(true)
                 .Font.SetFontSize(14)
@@ -176,7 +175,7 @@ namespace ClassSchedulingSys.Services
 
             // Day label
             worksheet.Cell(currentRow, 1).Value = $"Day: {dayName}";
-            worksheet.Range(currentRow, 1, currentRow, 9).Merge();
+            worksheet.Range(currentRow, 1, currentRow, 8).Merge();
             worksheet.Cell(currentRow, 1).Style
                 .Font.SetBold(true)
                 .Font.SetFontSize(11)
@@ -185,7 +184,7 @@ namespace ClassSchedulingSys.Services
             currentRow += 2;
 
             // === TABLE HEADERS ===
-            var headers = new[] { "Time", "Room", "Subject Code", "Subject Title", "Faculty", "Section", "Course", "Units", "Building" };
+            var headers = new[] { "Time", "Room", "Subject Code", "Subject Title", "Faculty", "Section", "Course", "Units"};
             for (int i = 0; i < headers.Length; i++)
             {
                 var cell = worksheet.Cell(currentRow, i + 1);
@@ -274,12 +273,12 @@ namespace ClassSchedulingSys.Services
                         .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                         .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
 
-                    // Building
-                    worksheet.Cell(currentRow, 9).Value = schedule.Room?.Building?.Name ?? "N/A";
-                    worksheet.Cell(currentRow, 9).Style
-                        .Fill.SetBackgroundColor(bgColor)
-                        .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                        .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                    //// Building
+                    //worksheet.Cell(currentRow, 9).Value = schedule.Room?.Building?.Name ?? "N/A";
+                    //worksheet.Cell(currentRow, 9).Style
+                    //    .Fill.SetBackgroundColor(bgColor)
+                    //    .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+                    //    .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
 
                     currentRow++;
                 }
@@ -290,8 +289,8 @@ namespace ClassSchedulingSys.Services
             worksheet.Cell(currentRow, 1).Value = $"Total Classes: {daySchedules.Count}";
             worksheet.Cell(currentRow, 1).Style.Font.SetBold(true);
 
-            worksheet.Cell(currentRow, 9).Value = $"Generated: {DateTime.Now:MMM dd, yyyy HH:mm}";
-            worksheet.Cell(currentRow, 9).Style
+            worksheet.Cell(currentRow, 8).Value = $"Generated: {DateTime.Now:MMM dd, yyyy HH:mm}";
+            worksheet.Cell(currentRow, 8).Style
                 .Font.SetFontSize(8)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
 
