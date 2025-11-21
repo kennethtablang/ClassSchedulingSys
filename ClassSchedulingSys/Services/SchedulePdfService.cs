@@ -99,19 +99,19 @@ namespace ClassSchedulingSys.Services
                     // === CONTENT TABLE ===
                     page.Content().PaddingTop(15).Table(table =>
                     {
-                        // ✅ FIX: Dynamic column definition based on POV
+                        // Dynamic column definition based on POV
                         table.ColumnsDefinition(columns =>
                         {
+                            columns.RelativeColumn(1f);   // Day
+                            columns.RelativeColumn(1.5f); // Time
                             columns.RelativeColumn(2.5f); // Subject
                             columns.RelativeColumn(1.5f); // Section
+                            columns.RelativeColumn(1.2f); // Room
+                            columns.RelativeColumn(0.8f); // Units
                             if (!isFacultyView)
                             {
                                 columns.RelativeColumn(2f);   // Faculty (only if not Faculty view)
                             }
-                            columns.RelativeColumn(1.2f); // Room
-                            columns.RelativeColumn(1f);   // Day
-                            columns.RelativeColumn(1.5f); // Time
-                            columns.RelativeColumn(0.8f); // Units
                         });
 
                         //  FIX: Dynamic header row based on POV
@@ -120,13 +120,13 @@ namespace ClassSchedulingSys.Services
                             header.Cell().Element(HeaderCellStyle).Text("Day").Bold();
                             header.Cell().Element(HeaderCellStyle).Text("Time").Bold();
                             header.Cell().Element(HeaderCellStyle).Text("Subject").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("Room").Bold();
                             header.Cell().Element(HeaderCellStyle).Text("Section").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("Room").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("Units").Bold();
                             if (!isFacultyView)
                             {
                                 header.Cell().Element(HeaderCellStyle).Text("Faculty").Bold();
                             }
-                            header.Cell().Element(HeaderCellStyle).Text("Units").Bold();
                         });
 
                         // Data rows - sorted by day then time
@@ -158,15 +158,14 @@ namespace ClassSchedulingSys.Services
                             // Room
                             table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(s.Room?.Name ?? "N/A");
 
+                            // Units
+                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).AlignCenter().Text(s.Subject?.Units.ToString() ?? "0");
+
                             // Faculty
                             if (!isFacultyView)
                             {
                                 table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(s.Faculty?.FullName ?? "N/A");
                             }
-
-                            // Units
-                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).AlignCenter().Text(s.Subject?.Units.ToString() ?? "0");
-
                             rowCounter++;
                         }
                     });

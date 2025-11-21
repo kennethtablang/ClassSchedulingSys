@@ -536,38 +536,54 @@ namespace ClassSchedulingSys.Controllers
         [HttpGet("print")]
         public async Task<IActionResult> PrintSchedule(
             [FromQuery] string pov,
-            [FromQuery] string? id,  //
+            [FromQuery] string? id,
             [FromQuery] int? semesterId,
             [FromQuery] DayOfWeek? day)
         {
-            // ✅ FIX: Only require id if POV is not "All"
+            // Only require id if POV is not "All"
             if (string.IsNullOrWhiteSpace(pov))
-                return BadRequest("POV parameter is required.");
+                return BadRequest(new { message = "POV parameter is required." });
 
             var isAllPov = pov.Equals("All", StringComparison.OrdinalIgnoreCase);
 
             if (!isAllPov && string.IsNullOrWhiteSpace(id))
-                return BadRequest("ID is required when POV is not 'All'.");
+                return BadRequest(new { message = "ID is required when POV is not 'All'." });
 
-            IQueryable<Schedule> baseQuery = pov.ToLower() switch
+            IQueryable<Schedule>? baseQuery = null;
+
+            try
             {
-                "faculty" => _context.Schedules
-                    .Where(s => s.FacultyId == id && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
+                baseQuery = pov.ToLower() switch
+                {
+                    "faculty" => _context.Schedules
+                        .Where(s => s.FacultyId == id && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
 
-                "classsection" => _context.Schedules
-                    .Where(s => s.ClassSectionId == int.Parse(id!) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
+                    "classsection" => int.TryParse(id, out int sectionId)
+                        ? _context.Schedules.Where(s => s.ClassSectionId == sectionId && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId))
+                        : throw new ArgumentException($"Invalid class section ID: '{id}'. Must be a valid number."),
 
-                "room" => _context.Schedules
-                    .Where(s => s.RoomId == int.Parse(id!) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
+                    "room" => int.TryParse(id, out int roomId)
+                        ? _context.Schedules.Where(s => s.RoomId == roomId && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId))
+                        : throw new ArgumentException($"Invalid room ID: '{id}'. Must be a valid number."),
 
-                "all" => _context.Schedules
-                    .Where(s => !semesterId.HasValue || s.ClassSection.SemesterId == semesterId),
+                    "all" => _context.Schedules
+                        .Where(s => !semesterId.HasValue || s.ClassSection.SemesterId == semesterId),
 
-                _ => null!
-            };
+                    _ => throw new ArgumentException($"Invalid POV: '{pov}'. Valid values are: Faculty, ClassSection, Room, All")
+                };
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in PrintSchedule query construction: {ex.Message}");
+                return StatusCode(500, new { message = "Internal server error while processing request", error = ex.Message });
+            }
 
             if (baseQuery == null)
-                return BadRequest("Invalid POV.");
+                return BadRequest(new { message = "Failed to construct query." });
 
             // Apply day filter if provided
             if (day.HasValue)
@@ -575,21 +591,53 @@ namespace ClassSchedulingSys.Controllers
                 baseQuery = baseQuery.Where(s => s.Day == day.Value);
             }
 
-            // Include all navigation properties using your extension
-            var schedules = await baseQuery.IncludeAll().ToListAsync();
+            try
+            {
+                // Include all navigation properties using your extension
+                var schedules = await baseQuery.IncludeAll().ToListAsync();
 
-            // ✅ FIX: Better error message
-            if (!schedules.Any())
-                return NotFound($"No schedules found for the selected criteria ({pov}, Semester: {semesterId?.ToString() ?? "All"}, Day: {day?.ToString() ?? "All"}).");
+                // Better error message with more details
+                if (!schedules.Any())
+                {
+                    var criteria = new List<string>
+            {
+                $"POV: {pov}",
+                !string.IsNullOrWhiteSpace(id) ? $"ID: {id}" : null,
+                semesterId.HasValue ? $"Semester: {semesterId}" : "Semester: All",
+                day.HasValue ? $"Day: {day}" : "Day: All"
+            };
+                    var criteriaMsg = string.Join(", ", criteria.Where(c => c != null));
+                    return NotFound(new { message = $"No schedules found for the selected criteria: {criteriaMsg}" });
+                }
 
-            // ✅ FIX: Use "All" as id when pov is "All"
-            var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, pov, id ?? "All");
+                // Use "All" as id when pov is "All"
+                var idForPdf = id ?? "All";
+                var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, pov, idForPdf);
 
-            // Add day to filename when provided for clarity
-            var dayLabel = day.HasValue ? $"_{day.Value}" : string.Empty;
-            var idLabel = string.IsNullOrWhiteSpace(id) ? "All" : id;
+                // Add day to filename when provided for clarity
+                var dayLabel = day.HasValue ? $"_{day.Value}" : string.Empty;
+                var idLabel = string.IsNullOrWhiteSpace(id) ? "All" : id;
 
-            return File(pdfBytes, "application/pdf", $"Schedule_{pov}_{idLabel}{dayLabel}_Sem{semesterId}.pdf");
+                return File(pdfBytes, "application/pdf", $"Schedule_{pov}_{idLabel}{dayLabel}_Sem{semesterId}.pdf");
+            }
+            catch (Exception ex)
+            {
+                // Detailed logging for debugging
+                Console.WriteLine($"PDF Generation Error: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+                    Console.WriteLine($"Inner Stack Trace: {ex.InnerException.StackTrace}");
+                }
+
+                return StatusCode(500, new
+                {
+                    message = "Failed to generate PDF",
+                    error = ex.Message,
+                    innerError = ex.InnerException?.Message
+                });
+            }
         }
 
         private static ScheduleReadDto MapToReadDto(Schedule s) => new()
