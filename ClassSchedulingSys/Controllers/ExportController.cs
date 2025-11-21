@@ -6,6 +6,7 @@ using ClassSchedulingSys.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
 
 namespace ClassSchedulingSys.Controllers
 {
@@ -17,12 +18,14 @@ namespace ClassSchedulingSys.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IScheduleExcelService _excelService;
         private readonly ISchedulePdfService _pdfService;
+        private readonly IWebHostEnvironment _environment;
 
-        public ExportController(ApplicationDbContext context, IScheduleExcelService excelService, ISchedulePdfService pdfService)
+        public ExportController(ApplicationDbContext context, IScheduleExcelService excelService, ISchedulePdfService pdfService, IWebHostEnvironment environment)
         {
             _context = context;
             _excelService = excelService;
             _pdfService = pdfService;
+            _environment = environment;
         }
 
         /// <summary>
@@ -365,5 +368,55 @@ namespace ClassSchedulingSys.Controllers
 
             return File(pdfBytes, "application/pdf", filename);
         }
+
+        /// <summary>
+        /// Export faculty schedule grid as PDF for Admin/Dean (Landscape Legal)
+        /// </summary>
+        [HttpGet("faculty-schedule-grid-pdf/{facultyId}")]
+        [Authorize(Roles = "Dean,SuperAdmin")]
+        public async Task<IActionResult> ExportFacultyScheduleGridPdf(
+            string facultyId,
+            [FromQuery] int? semesterId)
+        {
+            // Get faculty info
+            var faculty = await _context.Users.FindAsync(facultyId);
+            if (faculty == null)
+                return NotFound("Faculty member not found.");
+
+            // Build query for faculty schedules
+            var query = _context.Schedules.Where(s => s.FacultyId == facultyId);
+
+            // Apply semester filter if provided
+            if (semesterId.HasValue)
+            {
+                query = query.Where(s => s.ClassSection.SemesterId == semesterId.Value);
+            }
+
+            // Load schedules with all navigation properties
+            var schedules = await query.IncludeAll().ToListAsync();
+
+            if (!schedules.Any())
+                return NotFound("No schedules found for this faculty member.");
+
+            // Get semester info
+            var firstSchedule = schedules.First();
+            var semesterName = firstSchedule.ClassSection?.Semester?.Name ?? "Current Semester";
+            var schoolYear = firstSchedule.ClassSection?.Semester?.SchoolYear;
+            var syLabel = schoolYear != null ? $"{schoolYear.StartYear}-{schoolYear.EndYear}" : "N/A";
+
+            // Generate PDF using the new service
+            var gridService = new FacultyScheduleGridPdfService(_environment);
+            var pdfBytes = gridService.GenerateFacultyScheduleGridPdf(
+                schedules,
+                faculty.FullName,
+                faculty.EmployeeID ?? "N/A",
+                semesterName,
+                syLabel);
+
+            var filename = $"Faculty_Schedule_Grid_{faculty.FullName.Replace(" ", "_")}_Sem{semesterId}_{DateTime.Now:yyyyMMdd}.pdf";
+
+            return File(pdfBytes, "application/pdf", filename);
+        }
+
     }
 }
