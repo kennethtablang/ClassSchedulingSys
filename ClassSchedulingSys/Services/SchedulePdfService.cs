@@ -1,11 +1,9 @@
-﻿// ClassSchedulingSys/Services/SchedulePdfService.cs
+﻿// ClassSchedulingSys/Services/SchedulePdfService.cs - FIXED VERSION
 using ClassSchedulingSys.Interfaces;
 using ClassSchedulingSys.Models;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using SkiaSharp;
 
 namespace ClassSchedulingSys.Services
 {
@@ -22,224 +20,6 @@ namespace ClassSchedulingSys.Services
             _environment = environment;
         }
 
-
-        /// <summary>
-        /// Generates a PDF schedule for a specific course, year level, and block
-        /// Formatted similar to the PCNL class schedule format
-        /// </summary>
-        public byte[] GenerateCourseBlockSchedulePdf(
-            List<Schedule> schedules,
-            string courseCode,
-            string courseName,
-            int yearLevel,
-            string blockLabel,
-            string semesterLabel,
-            string schoolYearLabel)
-        {
-            // Get the logo path
-            var logoPath = Path.Combine(_environment.ContentRootPath, "Assets", "PCNL_Logo.jpg");
-
-            var document = Document.Create(container =>
-            {
-                container.Page(page =>
-                {
-                    page.Size(PageSizes.Letter.Portrait()); // Landscape for better table visibility
-                    page.Margin(30);
-                    page.DefaultTextStyle(x => x.FontSize(9));
-
-                    // === HEADER ===
-                    page.Header().Column(headerCol =>
-                    {
-                        // Logo and Institution Name Row
-                        headerCol.Item().AlignCenter().Row(row =>
-                        {
-                            // Logo
-                            row.AutoItem().Column(col =>
-                            {
-                                if (File.Exists(logoPath))
-                                {
-                                    col.Item().AlignMiddle().Height(50).Width(50).Image(logoPath);
-                                }
-                            });
-
-                            row.AutoItem().Width(15);
-
-                            // Header Text
-                            row.AutoItem().Column(col =>
-                            {
-                                col.Item().AlignCenter().Text("PHILIPPINE COLLEGE OF NORTHWESTERN LUZON")
-                                    .Bold().FontSize(14);
-                                col.Item().AlignCenter().Text("San Antonio, Agoo, La Union")
-                                    .FontSize(10);
-                                col.Item().AlignCenter().Text($"{courseName}")
-                                    .Bold().FontSize(12);
-                            });
-                        });
-
-                        headerCol.Item().PaddingTop(10).Row(row =>
-                        {
-                            row.RelativeItem().Column(col =>
-                            {
-                                col.Item().Text($"Revised Curriculum (2023-2024)")
-                                    .FontSize(9);
-                                col.Item().Text($"SY {schoolYearLabel}")
-                                    .FontSize(9);
-                            });
-
-                            row.RelativeItem().Column(col =>
-                            {
-                                col.Item().AlignRight().Text($"{semesterLabel}")
-                                    .Bold().FontSize(10);
-                                col.Item().AlignRight().Text($"Year-Block: {yearLevel} - {blockLabel}")
-                                    .Bold().FontSize(10);
-                            });
-                        });
-                    });
-
-                    // === CONTENT TABLE ===
-                    page.Content().PaddingTop(15).Table(table =>
-                    {
-                        // Define columns
-                        table.ColumnsDefinition(columns =>
-                        {
-                            columns.RelativeColumn(1.5f); // Time
-                            columns.RelativeColumn(1f);   // Day
-                            columns.RelativeColumn(1.5f); // Course Code
-                            columns.RelativeColumn(3f);   // Descriptive Title
-                            columns.RelativeColumn(0.8f); // Units
-                            columns.RelativeColumn(1.2f); // Room
-                            columns.RelativeColumn(2f);   // Instructor
-                        });
-
-                        // Header row
-                        table.Header(header =>
-                        {
-                            header.Cell().Element(HeaderCellStyle).Text("TIME").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("DAY").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("COURSE CODE").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("DESCRIPTIVE TITLE").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("UNITS").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("ROOM").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("INSTRUCTOR").Bold();
-                        });
-
-                        // Sort schedules by day then time
-                        var orderedSchedules = schedules
-                            .OrderBy(s => s.Day)
-                            .ThenBy(s => s.StartTime)
-                            .ToList();
-
-                        // Group by section if multiple sections exist
-                        var sectionGroups = orderedSchedules
-                            .GroupBy(s => s.ClassSection.Section)
-                            .OrderBy(g => g.Key);
-
-                        foreach (var sectionGroup in sectionGroups)
-                        {
-                            // Section header if there are multiple sections
-                            if (sectionGroups.Count() > 1)
-                            {
-                                table.Cell().ColumnSpan(7).Element(SectionHeaderStyle)
-                                    .Text($"BLOCK {sectionGroup.Key}").Bold();
-                            }
-
-                            var rowCounter = 0;
-                            foreach (var s in sectionGroup)
-                            {
-                                var isEvenRow = rowCounter % 2 == 0;
-
-                                // Time
-                                var timeDisplay = $"{FormatTime(s.StartTime)} - {FormatTime(s.EndTime)}";
-                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
-                                    .Text(timeDisplay).FontSize(8);
-
-                                // Day
-                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
-                                    .Text(FormatDay(s.Day));
-
-                                // Course Code
-                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
-                                    .Text(s.Subject?.SubjectCode ?? "N/A");
-
-                                // Descriptive Title
-                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
-                                    .Text(s.Subject?.SubjectTitle ?? "N/A").FontSize(8);
-
-                                // Units
-                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
-                                    .AlignCenter().Text(s.Subject?.Units.ToString() ?? "0");
-
-                                // Room
-                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
-                                    .Text(s.Room?.Name ?? "TBA");
-
-                                // Instructor
-                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
-                                    .Text(s.Faculty?.FullName ?? "TBA").FontSize(8);
-
-                                rowCounter++;
-                            }
-
-                            // Total units for this section
-                            if (sectionGroup.Any())
-                            {
-                                var totalUnits = sectionGroup.Sum(s => s.Subject?.Units ?? 0);
-
-                                table.Cell().ColumnSpan(4).Element(TotalCellStyle)
-                                    .AlignRight().Text("Total").Bold();
-
-                                table.Cell().Element(TotalCellStyle)
-                                    .AlignCenter().Text(totalUnits.ToString()).Bold();
-
-                                table.Cell().ColumnSpan(2).Element(TotalCellStyle);
-                            }
-                        }
-                    });
-
-                    // === FOOTER ===
-                    page.Footer().Row(row =>
-                    {
-                        row.RelativeItem().AlignLeft().Text(text =>
-                        {
-                            text.Span("Total Subjects: ").Bold();
-                            text.Span(schedules.Select(s => s.SubjectId).Distinct().Count().ToString());
-                        });
-
-                        row.RelativeItem().AlignCenter().Text(text =>
-                        {
-                            text.Span("Page ");
-                            text.CurrentPageNumber();
-                            text.Span(" of ");
-                            text.TotalPages();
-                        });
-
-                        row.RelativeItem().AlignRight().Text($"Generated: {DateTime.Now:MMM dd, yyyy}").FontSize(7);
-                    });
-                });
-            });
-
-            return document.GeneratePdf();
-        }
-
-        // Additional styling methods
-        private static IContainer SectionHeaderStyle(IContainer container)
-        {
-            return container
-                .Background(Colors.Blue.Lighten3)
-                .PaddingVertical(4)
-                .PaddingHorizontal(5);
-        }
-
-        private static IContainer TotalCellStyle(IContainer container)
-        {
-            return container
-                .BorderTop(1)
-                .BorderColor(Colors.Grey.Darken1)
-                .Background(Colors.Grey.Lighten3)
-                .PaddingVertical(4)
-                .PaddingHorizontal(5);
-        }
-
         /// <summary>
         /// Generates a PDF schedule report based on point of view (Faculty, Room, Class Section, or All)
         /// </summary>
@@ -249,11 +29,20 @@ namespace ClassSchedulingSys.Services
         /// <returns>Byte array containing the generated PDF</returns>
         public byte[] GenerateSchedulePdf(List<Schedule> schedules, string pov, string id)
         {
+            // ✅ FIX: Handle empty schedules list
+            if (!schedules.Any())
+            {
+                throw new InvalidOperationException("No schedules found to generate PDF.");
+            }
+
             // Extract semester information from first schedule
             var firstSchedule = schedules.FirstOrDefault();
             var semesterName = firstSchedule?.ClassSection?.Semester?.Name ?? "N/A";
             var schoolYear = firstSchedule?.ClassSection?.Semester?.SchoolYear;
             var syLabel = schoolYear != null ? $"{schoolYear.StartYear}-{schoolYear.EndYear}" : "N/A";
+
+            // ✅ FIX: Determine if Faculty column should be hidden
+            var isFacultyView = pov.Equals("Faculty", StringComparison.OrdinalIgnoreCase);
 
             // Get the logo path
             var logoPath = Path.Combine(_environment.ContentRootPath, "Assets", "PCNL_Logo.jpg");
@@ -262,7 +51,7 @@ namespace ClassSchedulingSys.Services
             {
                 container.Page(page =>
                 {
-                    page.Size(PageSizes.Letter.Portrait()); // Landscape for better schedule visibility
+                    page.Size(PageSizes.Letter.Portrait());
                     page.Margin(30);
                     page.DefaultTextStyle(x => x.FontSize(10));
 
@@ -290,7 +79,9 @@ namespace ClassSchedulingSys.Services
                                 col.Item().AlignCenter().Text("Philippine College of Northwestern Luzon")
                                     .Bold().FontSize(16);
 
-                                col.Item().AlignCenter().Text($"Class Schedule — {pov}: {GetPovLabel(schedules, pov, id)}")
+                                // ✅ FIX: Improved title generation
+                                var titleLabel = GetPovLabel(schedules, pov, id);
+                                col.Item().AlignCenter().Text($"Class Schedule — {titleLabel}")
                                     .FontSize(13).SemiBold();
 
                                 if (!string.IsNullOrWhiteSpace(semesterName) || !string.IsNullOrWhiteSpace(syLabel))
@@ -308,27 +99,33 @@ namespace ClassSchedulingSys.Services
                     // === CONTENT TABLE ===
                     page.Content().PaddingTop(15).Table(table =>
                     {
-                        // Define columns with appropriate widths
+                        // ✅ FIX: Dynamic column definition based on POV
                         table.ColumnsDefinition(columns =>
                         {
                             columns.RelativeColumn(2.5f); // Subject
                             columns.RelativeColumn(1.5f); // Section
-                            columns.RelativeColumn(2f);   // Faculty
+                            if (!isFacultyView)
+                            {
+                                columns.RelativeColumn(2f);   // Faculty (only if not Faculty view)
+                            }
                             columns.RelativeColumn(1.2f); // Room
                             columns.RelativeColumn(1f);   // Day
                             columns.RelativeColumn(1.5f); // Time
                             columns.RelativeColumn(0.8f); // Units
                         });
 
-                        // Header row with styled background
+                        //  FIX: Dynamic header row based on POV
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("Subject").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("Section").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("Faculty").Bold();
-                            header.Cell().Element(HeaderCellStyle).Text("Room").Bold();
                             header.Cell().Element(HeaderCellStyle).Text("Day").Bold();
                             header.Cell().Element(HeaderCellStyle).Text("Time").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("Subject").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("Room").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("Section").Bold();
+                            if (!isFacultyView)
+                            {
+                                header.Cell().Element(HeaderCellStyle).Text("Faculty").Bold();
+                            }
                             header.Cell().Element(HeaderCellStyle).Text("Units").Bold();
                         });
 
@@ -343,6 +140,13 @@ namespace ClassSchedulingSys.Services
                         {
                             var isEvenRow = rowCounter % 2 == 0;
 
+                            // Day
+                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(FormatDay(s.Day));
+
+                            // Time formatted in 12-hour format
+                            var timeDisplay = $"{FormatTime(s.StartTime)}\n{FormatTime(s.EndTime)}";
+                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(timeDisplay).FontSize(9);
+
                             // Subject with code
                             var subjectDisplay = $"{s.Subject?.SubjectCode ?? "N/A"}\n{s.Subject?.SubjectTitle ?? "N/A"}";
                             table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(subjectDisplay).FontSize(9);
@@ -351,18 +155,14 @@ namespace ClassSchedulingSys.Services
                             var sectionDisplay = $"{s.ClassSection?.CollegeCourse?.Code ?? ""} {s.ClassSection?.YearLevel}{s.ClassSection?.Section ?? ""}";
                             table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(sectionDisplay.Trim());
 
-                            // Faculty name
-                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(s.Faculty?.FullName ?? "N/A");
-
                             // Room
                             table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(s.Room?.Name ?? "N/A");
 
-                            // Day
-                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(FormatDay(s.Day));
-
-                            // Time formatted in 12-hour format
-                            var timeDisplay = $"{FormatTime(s.StartTime)}\n{FormatTime(s.EndTime)}";
-                            table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(timeDisplay).FontSize(9);
+                            // Faculty
+                            if (!isFacultyView)
+                            {
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(s.Faculty?.FullName ?? "N/A");
+                            }
 
                             // Units
                             table.Cell().Element(c => DataCellStyle(c, isEvenRow)).AlignCenter().Text(s.Subject?.Units.ToString() ?? "0");
@@ -397,30 +197,200 @@ namespace ClassSchedulingSys.Services
         }
 
         /// <summary>
-        /// Generates a PDF report of faculty academic loads showing assigned subjects, schedules, and totals.
-        /// Note: The assignments list should have Subject navigation property loaded with Schedules included.
+        /// Generates a PDF schedule for a specific course, year level, and block
         /// </summary>
-        /// <param name="assignments">List of faculty subject assignments with Subject.Schedules loaded</param>
-        /// <param name="semesterId">Optional semester ID for filtering</param>
-        /// <returns>Byte array containing the generated PDF</returns>
+        public byte[] GenerateCourseBlockSchedulePdf(
+            List<Schedule> schedules,
+            string courseCode,
+            string courseName,
+            int yearLevel,
+            string blockLabel,
+            string semesterLabel,
+            string schoolYearLabel)
+        {
+            var logoPath = Path.Combine(_environment.ContentRootPath, "Assets", "PCNL_Logo.jpg");
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.Letter.Portrait());
+                    page.Margin(30);
+                    page.DefaultTextStyle(x => x.FontSize(9));
+
+                    page.Header().Column(headerCol =>
+                    {
+                        headerCol.Item().AlignCenter().Row(row =>
+                        {
+                            row.AutoItem().Column(col =>
+                            {
+                                if (File.Exists(logoPath))
+                                {
+                                    col.Item().AlignMiddle().Height(50).Width(50).Image(logoPath);
+                                }
+                            });
+
+                            row.AutoItem().Width(15);
+
+                            row.AutoItem().Column(col =>
+                            {
+                                col.Item().AlignCenter().Text("PHILIPPINE COLLEGE OF NORTHWESTERN LUZON")
+                                    .Bold().FontSize(14);
+                                col.Item().AlignCenter().Text("San Antonio, Agoo, La Union")
+                                    .FontSize(10);
+                                col.Item().AlignCenter().Text($"{courseName}")
+                                    .Bold().FontSize(12);
+                            });
+                        });
+
+                        headerCol.Item().PaddingTop(10).Row(row =>
+                        {
+                            row.RelativeItem().Column(col =>
+                            {
+                                col.Item().Text($"Revised Curriculum (2023-2024)")
+                                    .FontSize(9);
+                                col.Item().Text($"SY {schoolYearLabel}")
+                                    .FontSize(9);
+                            });
+
+                            row.RelativeItem().Column(col =>
+                            {
+                                col.Item().AlignRight().Text($"{semesterLabel}")
+                                    .Bold().FontSize(10);
+                                col.Item().AlignRight().Text($"Year-Block: {yearLevel} - {blockLabel}")
+                                    .Bold().FontSize(10);
+                            });
+                        });
+                    });
+
+                    page.Content().PaddingTop(15).Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn(1.5f);
+                            columns.RelativeColumn(1f);
+                            columns.RelativeColumn(1.5f);
+                            columns.RelativeColumn(3f);
+                            columns.RelativeColumn(0.8f);
+                            columns.RelativeColumn(1.2f);
+                            columns.RelativeColumn(2f);
+                        });
+
+                        table.Header(header =>
+                        {
+                            header.Cell().Element(HeaderCellStyle).Text("TIME").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("DAY").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("COURSE CODE").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("DESCRIPTIVE TITLE").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("UNITS").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("ROOM").Bold();
+                            header.Cell().Element(HeaderCellStyle).Text("INSTRUCTOR").Bold();
+                        });
+
+                        var orderedSchedules = schedules
+                            .OrderBy(s => s.Day)
+                            .ThenBy(s => s.StartTime)
+                            .ToList();
+
+                        var sectionGroups = orderedSchedules
+                            .GroupBy(s => s.ClassSection.Section)
+                            .OrderBy(g => g.Key);
+
+                        foreach (var sectionGroup in sectionGroups)
+                        {
+                            if (sectionGroups.Count() > 1)
+                            {
+                                table.Cell().ColumnSpan(7).Element(SectionHeaderStyle)
+                                    .Text($"BLOCK {sectionGroup.Key}").Bold();
+                            }
+
+                            var rowCounter = 0;
+                            foreach (var s in sectionGroup)
+                            {
+                                var isEvenRow = rowCounter % 2 == 0;
+
+                                var timeDisplay = $"{FormatTime(s.StartTime)} - {FormatTime(s.EndTime)}";
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(timeDisplay).FontSize(8);
+
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(FormatDay(s.Day));
+
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Subject?.SubjectCode ?? "N/A");
+
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Subject?.SubjectTitle ?? "N/A").FontSize(8);
+
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .AlignCenter().Text(s.Subject?.Units.ToString() ?? "0");
+
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Room?.Name ?? "TBA");
+
+                                table.Cell().Element(c => DataCellStyle(c, isEvenRow))
+                                    .Text(s.Faculty?.FullName ?? "TBA").FontSize(8);
+
+                                rowCounter++;
+                            }
+
+                            if (sectionGroup.Any())
+                            {
+                                var totalUnits = sectionGroup.Sum(s => s.Subject?.Units ?? 0);
+
+                                table.Cell().ColumnSpan(4).Element(TotalCellStyle)
+                                    .AlignRight().Text("Total").Bold();
+
+                                table.Cell().Element(TotalCellStyle)
+                                    .AlignCenter().Text(totalUnits.ToString()).Bold();
+
+                                table.Cell().ColumnSpan(2).Element(TotalCellStyle);
+                            }
+                        }
+                    });
+
+                    page.Footer().Row(row =>
+                    {
+                        row.RelativeItem().AlignLeft().Text(text =>
+                        {
+                            text.Span("Total Subjects: ").Bold();
+                            text.Span(schedules.Select(s => s.SubjectId).Distinct().Count().ToString());
+                        });
+
+                        row.RelativeItem().AlignCenter().Text(text =>
+                        {
+                            text.Span("Page ");
+                            text.CurrentPageNumber();
+                            text.Span(" of ");
+                            text.TotalPages();
+                        });
+
+                        row.RelativeItem().AlignRight().Text($"Generated: {DateTime.Now:MMM dd, yyyy}").FontSize(7);
+                    });
+                });
+            });
+
+            return document.GeneratePdf();
+        }
+
+        /// <summary>
+        /// Generates a PDF report of faculty academic loads
+        /// </summary>
         public byte[] GenerateFacultyLoadReport(List<FacultySubjectAssignment> assignments, int? semesterId)
         {
             if (!assignments.Any())
                 throw new ArgumentException("No assignments provided for report generation.");
 
-            // Group assignments by faculty
             var groupedByFaculty = assignments
                 .GroupBy(a => a.FacultyId)
                 .ToList();
 
-            // Get semester info for header
             var firstAssignment = assignments.First();
             var semesterInfo = firstAssignment.ClassSection?.Semester;
             var semesterLabel = semesterInfo != null
                 ? $"{semesterInfo.Name} ({semesterInfo.SchoolYear.StartYear}-{semesterInfo.SchoolYear.EndYear})"
                 : "Current Semester";
 
-            // Get the logo path
             var logoPath = Path.Combine(_environment.ContentRootPath, "Assets", "PCNL_Logo.jpg");
 
             var document = Document.Create(container =>
@@ -430,24 +400,19 @@ namespace ClassSchedulingSys.Services
                     var faculty = facultyGroup.First().Faculty;
                     var facultyAssignments = facultyGroup.ToList();
 
-                    // Calculate totals
                     var totalUnits = facultyAssignments.Sum(a => a.Subject.Units);
                     var totalSubjects = facultyAssignments.Select(a => a.SubjectId).Distinct().Count();
 
-                    // Add a page for each faculty member
                     container.Page(page =>
                     {
-                        page.Size(PageSizes.Letter.Portrait()); // Landscape to fit schedule columns
+                        page.Size(PageSizes.Letter.Portrait());
                         page.Margin(40);
                         page.DefaultTextStyle(x => x.FontSize(10));
 
-                        // === HEADER ===
                         page.Header().Column(headerCol =>
                         {
-                            // Centered row containing logo and title
                             headerCol.Item().AlignCenter().Row(row =>
                             {
-                                // Logo on the left of the text
                                 row.AutoItem().Column(col =>
                                 {
                                     if (File.Exists(logoPath))
@@ -456,25 +421,22 @@ namespace ClassSchedulingSys.Services
                                     }
                                 });
 
-                                // Small space between logo and text
                                 row.AutoItem().Width(15);
 
-                                // Title section
                                 row.AutoItem().Column(col =>
                                 {
                                     col.Item().AlignCenter().Text("Philippine College of Northwestern Luzon")
-                                    .Bold().FontSize(16);
+                                        .Bold().FontSize(16);
 
                                     col.Item().AlignCenter().Text("San Antonio, Agoo, La Union 2504 Philippines")
-                                    .FontSize(12);
+                                        .FontSize(12);
 
                                     col.Item().AlignCenter().Text("Telephone No. (072) 607-3883")
-                                    .FontSize(12);
+                                        .FontSize(12);
                                 });
                             });
                         });
 
-                        // === FACULTY INFORMATION ===
                         page.Content().Column(column =>
                         {
                             column.Item().PaddingVertical(6);
@@ -484,6 +446,7 @@ namespace ClassSchedulingSys.Services
 
                             column.Item().AlignCenter().Text(semesterLabel)
                                 .FontSize(11).Italic();
+
                             column.Item().PaddingVertical(10).Row(row =>
                             {
                                 row.RelativeItem().Column(col =>
@@ -529,24 +492,21 @@ namespace ClassSchedulingSys.Services
                                 });
                             });
 
-                            // === ASSIGNMENTS TABLE WITH SCHEDULE INFO ===
                             column.Item().PaddingTop(15).Table(table =>
                             {
-                                // Define columns
                                 table.ColumnsDefinition(columns =>
                                 {
-                                    columns.ConstantColumn(35);  // No.
-                                    columns.RelativeColumn(1.5f); // Subject Code
-                                    columns.RelativeColumn(2.5f); // Subject Title
-                                    columns.RelativeColumn(0.8f); // Units
-                                    columns.RelativeColumn(1f);   // Type
-                                    columns.RelativeColumn(1.2f); // Section
-                                    columns.RelativeColumn(1.2f); // Course
-                                    columns.RelativeColumn(1f);   // Day
-                                    columns.RelativeColumn(1.3f); // Time
+                                    columns.ConstantColumn(35);
+                                    columns.RelativeColumn(1.5f);
+                                    columns.RelativeColumn(2.5f);
+                                    columns.RelativeColumn(0.8f);
+                                    columns.RelativeColumn(1f);
+                                    columns.RelativeColumn(1.2f);
+                                    columns.RelativeColumn(1.2f);
+                                    columns.RelativeColumn(1f);
+                                    columns.RelativeColumn(1.3f);
                                 });
 
-                                // Header
                                 table.Header(header =>
                                 {
                                     header.Cell().Element(HeaderCellStyle).Text("No.").Bold();
@@ -560,7 +520,6 @@ namespace ClassSchedulingSys.Services
                                     header.Cell().Element(HeaderCellStyle).Text("Time").Bold();
                                 });
 
-                                // Body rows with schedule information
                                 var counter = 1;
                                 var orderedAssignments = facultyAssignments
                                     .OrderBy(a => a.Subject.SubjectCode)
@@ -571,14 +530,12 @@ namespace ClassSchedulingSys.Services
                                 {
                                     var isEvenRow = counter % 2 == 0;
 
-                                    // Find schedules for this subject-section combination
                                     var schedule = assignment.Subject.Schedules?
                                         .FirstOrDefault(s =>
                                             s.SubjectId == assignment.SubjectId &&
                                             s.ClassSectionId == assignment.ClassSectionId &&
                                             s.FacultyId == faculty.Id);
 
-                                    // Basic assignment info
                                     table.Cell().Element(c => DataCellStyle(c, isEvenRow)).AlignCenter().Text(counter.ToString());
                                     table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(assignment.Subject.SubjectCode);
                                     table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(assignment.Subject.SubjectTitle);
@@ -589,7 +546,6 @@ namespace ClassSchedulingSys.Services
                                     table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(sectionLabel);
                                     table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(assignment.ClassSection.CollegeCourse?.Code ?? "N/A");
 
-                                    // Schedule info (Day and Time)
                                     if (schedule != null)
                                     {
                                         table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text(FormatDay(schedule.Day));
@@ -599,7 +555,6 @@ namespace ClassSchedulingSys.Services
                                     }
                                     else
                                     {
-                                        // No schedule assigned yet
                                         table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text("TBA").Italic().FontColor(Colors.Grey.Medium);
                                         table.Cell().Element(c => DataCellStyle(c, isEvenRow)).Text("TBA").Italic().FontColor(Colors.Grey.Medium);
                                     }
@@ -608,7 +563,6 @@ namespace ClassSchedulingSys.Services
                                 }
                             });
 
-                            // === SUMMARY SECTION ===
                             column.Item().PaddingTop(20).Row(row =>
                             {
                                 row.RelativeItem();
@@ -629,7 +583,6 @@ namespace ClassSchedulingSys.Services
                                         r.ConstantItem(80).AlignRight().Text(totalSubjects.ToString()).Bold().FontSize(11);
                                     });
 
-                                    // Calculate scheduled vs unscheduled
                                     var scheduledCount = facultyAssignments.Count(a =>
                                         a.Subject.Schedules?.Any(s =>
                                             s.SubjectId == a.SubjectId &&
@@ -656,7 +609,6 @@ namespace ClassSchedulingSys.Services
                             });
                         });
 
-                        // === FOOTER ===
                         page.Footer().AlignCenter().Text(text =>
                         {
                             text.Span("Page ");
@@ -674,9 +626,6 @@ namespace ClassSchedulingSys.Services
 
         #region Helper Methods
 
-        /// <summary>
-        /// Formats a TimeSpan into 12-hour time format with AM/PM
-        /// </summary>
         private static string FormatTime(TimeSpan time)
         {
             var hours = time.Hours;
@@ -691,35 +640,54 @@ namespace ClassSchedulingSys.Services
         private string FormatDay(object dayValue)
         {
             if (dayValue == null) return "TBA";
-
-            // Convert to string safely
             string dayName = dayValue.ToString();
-
-            // Return first three letters, capitalized (Mon, Tue, Wed, etc.)
             if (dayName.Length >= 3)
                 return dayName.Substring(0, 3);
-
             return dayName;
         }
-
 
         /// <summary>
         /// Gets a readable label for the selected entity based on point of view
         /// </summary>
         private static string GetPovLabel(List<Schedule> schedules, string pov, string id)
         {
+            // ✅ FIX: Handle "All" POV case
+            if (string.IsNullOrWhiteSpace(pov) || pov.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                return "All Schedules";
+            }
+
+            // ✅ FIX: Handle empty schedules list
+            if (!schedules.Any())
+            {
+                return $"{pov}: {id ?? "N/A"}";
+            }
+
+            // ✅ FIX: Improved entity name retrieval with null checks
             return pov.ToLower() switch
             {
-                "faculty" => schedules.FirstOrDefault()?.Faculty?.FullName ?? id,
-                "class section" or "classsection" => schedules.FirstOrDefault()?.ClassSection?.Section ?? id,
-                "room" => schedules.FirstOrDefault()?.Room?.Name ?? id,
-                _ => id
+                "faculty" => schedules.FirstOrDefault()?.Faculty?.FullName ?? $"Faculty: {id ?? "Unknown"}",
+                "class section" or "classsection" =>
+                    GetClassSectionLabel(schedules.FirstOrDefault()?.ClassSection) ?? $"Section: {id ?? "Unknown"}",
+                "room" => schedules.FirstOrDefault()?.Room?.Name ?? $"Room: {id ?? "Unknown"}",
+                _ => $"{pov}: {id ?? "Unknown"}"
             };
         }
 
         /// <summary>
-        /// Styling for table header cells
+        /// Helper method to format class section label
         /// </summary>
+        private static string GetClassSectionLabel(ClassSection? classSection)
+        {
+            if (classSection == null) return null;
+
+            var courseCode = classSection.CollegeCourse?.Code ?? "";
+            var yearLevel = classSection.YearLevel;
+            var section = classSection.Section ?? "";
+
+            return $"{courseCode} {yearLevel}-{section}".Trim();
+        }
+
         private static IContainer HeaderCellStyle(IContainer container)
         {
             return container
@@ -730,15 +698,30 @@ namespace ClassSchedulingSys.Services
                 .PaddingHorizontal(5);
         }
 
-        /// <summary>
-        /// Styling for table data cells with alternating row colors
-        /// </summary>
         private static IContainer DataCellStyle(IContainer container, bool isEvenRow)
         {
             return container
                 .BorderBottom(1)
                 .BorderColor(Colors.Grey.Lighten2)
                 .Background(isEvenRow ? Colors.Grey.Lighten4 : Colors.White)
+                .PaddingVertical(4)
+                .PaddingHorizontal(5);
+        }
+
+        private static IContainer SectionHeaderStyle(IContainer container)
+        {
+            return container
+                .Background(Colors.Blue.Lighten3)
+                .PaddingVertical(4)
+                .PaddingHorizontal(5);
+        }
+
+        private static IContainer TotalCellStyle(IContainer container)
+        {
+            return container
+                .BorderTop(1)
+                .BorderColor(Colors.Grey.Darken1)
+                .Background(Colors.Grey.Lighten3)
                 .PaddingVertical(4)
                 .PaddingHorizontal(5);
         }

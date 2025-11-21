@@ -536,12 +536,18 @@ namespace ClassSchedulingSys.Controllers
         [HttpGet("print")]
         public async Task<IActionResult> PrintSchedule(
             [FromQuery] string pov,
-            [FromQuery] string id,
+            [FromQuery] string? id,  //
             [FromQuery] int? semesterId,
-            [FromQuery] DayOfWeek? day)    // <-- optional day filter
+            [FromQuery] DayOfWeek? day)
         {
-            if (string.IsNullOrWhiteSpace(pov) || string.IsNullOrWhiteSpace(id))
-                return BadRequest("POV and ID are required.");
+            // ✅ FIX: Only require id if POV is not "All"
+            if (string.IsNullOrWhiteSpace(pov))
+                return BadRequest("POV parameter is required.");
+
+            var isAllPov = pov.Equals("All", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAllPov && string.IsNullOrWhiteSpace(id))
+                return BadRequest("ID is required when POV is not 'All'.");
 
             IQueryable<Schedule> baseQuery = pov.ToLower() switch
             {
@@ -549,10 +555,10 @@ namespace ClassSchedulingSys.Controllers
                     .Where(s => s.FacultyId == id && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
 
                 "classsection" => _context.Schedules
-                    .Where(s => s.ClassSectionId == int.Parse(id) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
+                    .Where(s => s.ClassSectionId == int.Parse(id!) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
 
                 "room" => _context.Schedules
-                    .Where(s => s.RoomId == int.Parse(id) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
+                    .Where(s => s.RoomId == int.Parse(id!) && (!semesterId.HasValue || s.ClassSection.SemesterId == semesterId)),
 
                 "all" => _context.Schedules
                     .Where(s => !semesterId.HasValue || s.ClassSection.SemesterId == semesterId),
@@ -563,23 +569,27 @@ namespace ClassSchedulingSys.Controllers
             if (baseQuery == null)
                 return BadRequest("Invalid POV.");
 
-            // apply day filter if provided
+            // Apply day filter if provided
             if (day.HasValue)
             {
                 baseQuery = baseQuery.Where(s => s.Day == day.Value);
             }
 
-            // include all navigation properties using your extension
+            // Include all navigation properties using your extension
             var schedules = await baseQuery.IncludeAll().ToListAsync();
 
+            // ✅ FIX: Better error message
             if (!schedules.Any())
-                return NotFound("No schedules found.");
+                return NotFound($"No schedules found for the selected criteria ({pov}, Semester: {semesterId?.ToString() ?? "All"}, Day: {day?.ToString() ?? "All"}).");
 
-            var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, pov, id);
+            // ✅ FIX: Use "All" as id when pov is "All"
+            var pdfBytes = _pdfService.GenerateSchedulePdf(schedules, pov, id ?? "All");
 
-            // add day to filename when provided for clarity
+            // Add day to filename when provided for clarity
             var dayLabel = day.HasValue ? $"_{day.Value}" : string.Empty;
-            return File(pdfBytes, "application/pdf", $"Schedule_{pov}_{id}{dayLabel}_Sem{semesterId}.pdf");
+            var idLabel = string.IsNullOrWhiteSpace(id) ? "All" : id;
+
+            return File(pdfBytes, "application/pdf", $"Schedule_{pov}_{idLabel}{dayLabel}_Sem{semesterId}.pdf");
         }
 
         private static ScheduleReadDto MapToReadDto(Schedule s) => new()
