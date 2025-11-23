@@ -179,7 +179,7 @@ namespace ClassSchedulingSys.Services
                                         table.Cell().RowSpan((uint)rowsToSpan).Element(ScheduleCellStyle)
                                             .Column(col =>
                                             {
-                                                col.Item().Text(timeRange).Bold().FontSize(6);
+                                                //col.Item().Text(timeRange).Bold().FontSize(6);
                                                 col.Item().Text(subjectCode).Bold().FontSize(7);
                                                 col.Item().Text(subjectTitle).FontSize(6);
                                                 col.Item().Text($"{courseCode} {yearLevel}-{section}").FontSize(6);
